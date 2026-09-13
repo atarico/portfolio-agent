@@ -1,11 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { authorizeMcpRequest } from "./auth";
 
 describe("authorizeMcpRequest", () => {
-  it("allows every request when MCP_AUTH_TOKEN is unset or blank", () => {
+  it("allows every request when MCP_AUTH_TOKEN is unset or blank outside production", () => {
     expect(authorizeMcpRequest(new Headers(), {})).toEqual({ ok: true });
     expect(authorizeMcpRequest(new Headers(), { MCP_AUTH_TOKEN: "  " })).toEqual({ ok: true });
+  });
+
+  it("stays open outside production even for an explicit non-production NODE_ENV", () => {
+    expect(authorizeMcpRequest(new Headers(), { NODE_ENV: "development" })).toEqual({ ok: true });
+    expect(authorizeMcpRequest(new Headers(), { NODE_ENV: "test" })).toEqual({ ok: true });
+  });
+
+  it("fails closed in production when MCP_AUTH_TOKEN is unset, without dispatching further", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = authorizeMcpRequest(new Headers(), { NODE_ENV: "production" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.response.status).toBe(503);
+    const body = await result.response.clone().json();
+    expect(body).toEqual({ error: "This endpoint is not configured. Check the server logs.", code: "endpoint_unconfigured" });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+
+    errorSpy.mockRestore();
   });
 
   it("rejects a missing bearer token with 401 and a WWW-Authenticate challenge", () => {

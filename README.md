@@ -88,10 +88,12 @@ Then ask Claude Code: *"Use portfolio-agent to list the repos and detect the sta
 
 ## Security notes (demo-grade, but deliberate)
 
-- `/api/mcp` is open unless `MCP_AUTH_TOKEN` is set. That is acceptable while `GITHUB_TOKEN` is empty or has no scopes; set the token before deploying with any credential worth protecting.
+- `/api/mcp` is open outside production unless `MCP_AUTH_TOKEN` is set. **In production, an unset `MCP_AUTH_TOKEN` fails closed**: every request is refused with a 503 rather than silently staying open. Set the token before deploying with any credential worth protecting.
+- Both public endpoints (`/api/mcp` and `/api/chat`) share one guard floor (`lib/http/guards.ts`): rate limit first, then auth. `/api/mcp` and `/api/chat` each get their own rate-limiter instance, so one endpoint's traffic never evicts the other's buckets.
 - `/api/chat` validates the body with zod (message count, parts, text length, roles) and applies an in-memory per-IP rate limit (20 requests / 10 minutes). The limiter is per process, so on serverless it is best-effort; use a shared store for real traffic.
 - Error responses are opaque in production (`{ error, code }`); details go to the server log. Outside production the `detail` field is included to help development.
 - Repository names and file paths are validated before any GitHub request is built.
+- **Never set `MCP_AUTH_TOKEN` to the same value as `GITHUB_TOKEN`.** They protect different boundaries: `MCP_AUTH_TOKEN` gates who may call `/api/mcp`, `GITHUB_TOKEN` is the credential the server presents to GitHub. The MCP route never forwards an inbound bearer to the GitHub adapter, but the two secrets should still never collide.
 
 ## Tests
 
@@ -111,9 +113,11 @@ apps/web/                      Next.js app (App Router)
   src/app/api/mcp/route.ts     MCP server over Streamable HTTP (optional bearer auth)
   src/lib/llm/provider.ts      LLM provider registry
   src/lib/mcp/client.ts        MCP connection: in-process by default, remote via MCP_SERVER_URL
-  src/lib/mcp/auth.ts          bearer auth for /api/mcp
+  src/lib/mcp/auth.ts          bearer auth for /api/mcp, fails closed in production
   src/lib/chat/request.ts      zod validation of the chat body
   src/lib/chat/rate-limit.ts   fixed-window rate limiter
+  src/lib/http/env.ts          injected Env type, isProduction, trustsProxyHeaders
+  src/lib/http/guards.ts       shared guard floor: rate limit, then auth, for both public routes
   src/lib/http/errors.ts       opaque client errors
   src/lib/agent/instructions.ts  system prompt + step budget
   src/components/chat/         chat UI (container + presentational)

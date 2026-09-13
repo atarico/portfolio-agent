@@ -1,6 +1,9 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { GitHubRestAdapter, createPortfolioMcpServer, resolveOwner } from "@portfolio-agent/mcp-server";
 
+import { createRateLimiter, type RateLimiter } from "@/lib/chat/rate-limit";
+import type { Env } from "@/lib/http/env";
+import { applyPublicGuards } from "@/lib/http/guards";
 import { authorizeMcpRequest } from "@/lib/mcp/auth";
 
 /**
@@ -13,28 +16,51 @@ import { authorizeMcpRequest } from "@/lib/mcp/auth";
  * A fresh server instance is created per request (stateless), which is what
  * serverless runtimes such as Vercel expect. The owner is fixed by
  * configuration, so a caller can never point the server (and its GitHub
- * token) at another account. Set MCP_AUTH_TOKEN to require a bearer token.
+ * token) at another account. Set MCP_AUTH_TOKEN to require a bearer token;
+ * it fails closed in production when that token is unset (see lib/mcp/auth.ts).
  */
-const handler = createMcpHandler(() =>
-  createPortfolioMcpServer({
-    github: new GitHubRestAdapter({ token: process.env.GITHUB_TOKEN }),
-    owner: resolveOwner(process.env),
-  }),
-);
-
-function guarded(request: Request): Promise<Response> | Response {
-  const auth = authorizeMcpRequest(request.headers);
-  return auth.ok ? handler.fetch(request) : auth.response;
+export function portfolioServerFor(env: Env, fetchImpl?: typeof fetch): ReturnType<typeof createPortfolioMcpServer> {
+  return createPortfolioMcpServer({
+    github: new GitHubRestAdapter({ token: env.GITHUB_TOKEN, fetch: fetchImpl }),
+    owner: resolveOwner(env),
+  });
 }
 
+export interface McpRouteDeps {
+  env?: Env;
+  limiter?: RateLimiter;
+  createServer?: (env: Env) => ReturnType<typeof portfolioServerFor>;
+}
+
+/**
+ * Dependency-injected route handler. Tests build their own instance with an
+ * injected limiter, env, and server factory; production binds one default
+ * instance below. This is what makes the guard composition (rate limit,
+ * then auth, then dispatch) assertable without mutating `process.env` or
+ * sharing rate-limiter state across test cases.
+ */
+export function createMcpRouteHandler(deps: McpRouteDeps = {}): (request: Request) => Promise<Response> {
+  const env = deps.env ?? process.env;
+  const limiter = deps.limiter ?? createRateLimiter({ limit: 20, windowMs: 10 * 60 * 1000 });
+  const createServer = deps.createServer ?? portfolioServerFor;
+  const handler = createMcpHandler(() => createServer(env));
+
+  return async (request: Request): Promise<Response> => {
+    const denied = applyPublicGuards(request, { limiter, env, authorize: authorizeMcpRequest });
+    return denied ?? handler.fetch(request);
+  };
+}
+
+const defaultHandler = createMcpRouteHandler();
+
 export function GET(request: Request) {
-  return guarded(request);
+  return defaultHandler(request);
 }
 
 export function POST(request: Request) {
-  return guarded(request);
+  return defaultHandler(request);
 }
 
 export function DELETE(request: Request) {
-  return guarded(request);
+  return defaultHandler(request);
 }
