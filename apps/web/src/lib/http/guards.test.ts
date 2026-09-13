@@ -5,11 +5,11 @@ import type { RateLimitDecision, RateLimiter } from "@/lib/chat/rate-limit";
 import { applyPublicGuards } from "./guards";
 
 function allowingLimiter(): RateLimiter {
-  return { check: vi.fn((): RateLimitDecision => ({ allowed: true, remaining: 10 })) };
+  return { check: vi.fn((): RateLimitDecision => ({ allowed: true, remaining: 10 })), size: () => 0 };
 }
 
 function denyingLimiter(): RateLimiter {
-  return { check: vi.fn((): RateLimitDecision => ({ allowed: false, retryAfterSeconds: 30 })) };
+  return { check: vi.fn((): RateLimitDecision => ({ allowed: false, retryAfterSeconds: 30 })), size: () => 0 };
 }
 
 describe("applyPublicGuards", () => {
