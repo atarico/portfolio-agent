@@ -90,6 +90,12 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
         messages: await convertToModelMessages(parsed.messages),
         tools,
         stopWhen: isStepCount(MAX_AGENT_STEPS),
+        // Propagates the client's Stop button (and any client-side disconnect) to the
+        // agent loop and the LLM stream, instead of letting server-side work (further
+        // MCP/GitHub calls, further generation) run to completion or maxDuration on a
+        // request the client already abandoned — both providers are free-tier and
+        // rate-limited, so an unbounded abandoned request burns quota for nothing.
+        abortSignal: request.signal,
         onEnd: connection.close,
         onError: ({ error }) => {
           console.error("[chat] stream error:", error);
