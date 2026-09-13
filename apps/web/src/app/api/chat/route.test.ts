@@ -24,7 +24,9 @@ vi.mock("@/lib/llm/provider", () => ({
   resolveModel: vi.fn(() => ({ provider: "google", modelId: "mock-model", model: {} })),
 }));
 
-import { streamText } from "ai";
+import { isStepCount, streamText } from "ai";
+
+import { MAX_AGENT_STEPS } from "@/lib/agent/instructions";
 
 import { createChatRouteHandler } from "./route";
 
@@ -90,5 +92,18 @@ describe("createChatRouteHandler", () => {
     const [options] = vi.mocked(streamText).mock.calls[0] as [{ abortSignal?: AbortSignal }];
     expect(options.abortSignal).toBe(request.signal);
     expect(controller.signal.aborted).toBe(false);
+  });
+
+  it("pins the agent step budget: isStepCount receives MAX_AGENT_STEPS and streamText's stopWhen is exactly its result", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+    const request = chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] });
+
+    await handler(request);
+
+    expect(isStepCount).toHaveBeenCalledWith(MAX_AGENT_STEPS);
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ stopWhen?: unknown }];
+    const lastIsStepCountResult = vi.mocked(isStepCount).mock.results.at(-1)?.value;
+    expect(options.stopWhen).toBe(lastIsStepCountResult);
   });
 });
