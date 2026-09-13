@@ -21,7 +21,14 @@ export const MAX_PAYLOAD_BYTES = 131_072; // 128 KiB
 
 const textPart = z.object({ type: z.literal("text"), text: z.string().max(MAX_TEXT_CHARS) });
 
-/** Any other UI part (tool calls, step markers...) must at least declare its type. */
+/**
+ * Any other UI part (tool calls, step markers...) must at least declare its type.
+ *
+ * The `type !== "text"` refinement is load-bearing, not defensive: this schema
+ * never inspects a `text` field, so without it an oversized text part would
+ * fail `textPart`'s MAX_TEXT_CHARS check, fall through to this branch of the
+ * union, and be admitted with its length cap silently bypassed.
+ */
 const otherPart = z.looseObject({ type: z.string().min(1) }).refine((part) => part.type !== "text");
 
 const messageSchema = z.object({

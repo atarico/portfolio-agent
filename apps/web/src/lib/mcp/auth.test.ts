@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ERROR_MESSAGES } from "@/lib/http/errors";
+
 import { authorizeMcpRequest } from "./auth";
 
 describe("authorizeMcpRequest", () => {
@@ -22,7 +24,7 @@ describe("authorizeMcpRequest", () => {
     if (result.ok) return;
     expect(result.response.status).toBe(503);
     const body = await result.response.clone().json();
-    expect(body).toEqual({ error: "This endpoint is not configured. Check the server logs.", code: "endpoint_unconfigured" });
+    expect(body).toEqual({ error: ERROR_MESSAGES.endpoint_unconfigured, code: "endpoint_unconfigured" });
     expect(errorSpy).toHaveBeenCalledTimes(1);
 
     errorSpy.mockRestore();

@@ -36,8 +36,8 @@ export interface DescribeErrorOptions {
  * `detail` is an explicit contract, not a raw caught error: pass `undefined`
  * when there is nothing safe to show (the body carries only the opaque
  * message), or a string message to surface outside production. Callers that
- * hold an `unknown` error must convert it to a string first (see
- * {@link clientErrorMessage}'s internal `messageOf` for the same pattern).
+ * hold an `unknown` error must convert it to a string first with
+ * {@link messageOf}.
  * This keeps a nullish value from ever being stringified into the response,
  * which previously shipped a literal `"detail": "null"`.
  */
@@ -52,7 +52,12 @@ export function clientErrorMessage(error: unknown, env: Env = process.env): stri
   return isProduction(env) ? ERROR_MESSAGES.upstream_failure : `${ERROR_MESSAGES.upstream_failure} (${messageOf(error)})`;
 }
 
-/** Converts a caught `unknown` error to a string, for callers that then pass it to {@link describeError}. */
+/**
+ * Converts a caught `unknown` error to a string.
+ *
+ * Used both to build a {@link describeError} detail and to interpolate into
+ * a streamed message, so it is deliberately tied to neither call shape.
+ */
 export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
