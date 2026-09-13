@@ -1,7 +1,7 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { GitHubRestAdapter, createPortfolioMcpServer, resolveOwner } from "@portfolio-agent/mcp-server";
 
-import { createRateLimiter, type RateLimiter } from "@/lib/chat/rate-limit";
+import { PUBLIC_ROUTE_BUDGET, createRateLimiter, type RateLimiter } from "@/lib/chat/rate-limit";
 import type { Env } from "@/lib/http/env";
 import { applyPublicGuards } from "@/lib/http/guards";
 import { authorizeMcpRequest } from "@/lib/mcp/auth";
@@ -41,7 +41,7 @@ export interface McpRouteDeps {
  */
 export function createMcpRouteHandler(deps: McpRouteDeps = {}): (request: Request) => Promise<Response> {
   const env = deps.env ?? process.env;
-  const limiter = deps.limiter ?? createRateLimiter({ limit: 20, windowMs: 10 * 60 * 1000 });
+  const limiter = deps.limiter ?? createRateLimiter(PUBLIC_ROUTE_BUDGET);
   const createServer = deps.createServer ?? portfolioServerFor;
   const handler = createMcpHandler(() => createServer(env));
 

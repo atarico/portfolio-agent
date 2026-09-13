@@ -8,11 +8,11 @@ import type { Env } from "@/lib/http/env";
 import { createMcpRouteHandler, portfolioServerFor } from "./route";
 
 function allowingLimiter(): RateLimiter {
-  return { check: vi.fn((): RateLimitDecision => ({ allowed: true, remaining: 10 })) };
+  return { check: vi.fn((): RateLimitDecision => ({ allowed: true, remaining: 10 })), size: () => 0 };
 }
 
 function denyingLimiter(): RateLimiter {
-  return { check: vi.fn((): RateLimitDecision => ({ allowed: false, retryAfterSeconds: 30 })) };
+  return { check: vi.fn((): RateLimitDecision => ({ allowed: false, retryAfterSeconds: 30 })), size: () => 0 };
 }
 
 /** A minimal, real MCP `initialize` JSON-RPC call: the cheapest request that reaches the server factory. */

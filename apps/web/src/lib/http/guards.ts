@@ -19,7 +19,7 @@ export interface PublicGuardOptions {
  * response, or `null` to let the route continue.
  */
 export function applyPublicGuards(request: Request, { limiter, env = process.env, authorize }: PublicGuardOptions): Response | null {
-  const quota = limiter.check(clientKeyFromHeaders(request.headers));
+  const quota = limiter.check(clientKeyFromHeaders(request.headers, env));
   if (!quota.allowed) {
     return Response.json(describeError(undefined, { code: "rate_limited", env }), {
       status: 429,
