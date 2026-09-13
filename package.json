@@ -1,0 +1,19 @@
+{
+  "name": "portfolio-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LLM agent + MCP server + chat UI that answers questions about a GitHub portfolio. Provider-agnostic, free-tier friendly.",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm --filter web lint",
+    "mcp:build": "pnpm --filter @portfolio-agent/mcp-server build",
+    "mcp:stdio": "pnpm --filter @portfolio-agent/mcp-server start:stdio"
+  }
+}
