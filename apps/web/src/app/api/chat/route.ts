@@ -10,7 +10,7 @@ import {
 import { MAX_AGENT_STEPS, buildInstructions } from "@/lib/agent/instructions";
 import { clientKeyFromHeaders, createRateLimiter } from "@/lib/chat/rate-limit";
 import { parseChatRequest } from "@/lib/chat/request";
-import { clientErrorMessage, describeError } from "@/lib/http/errors";
+import { clientErrorMessage, describeError, messageOf } from "@/lib/http/errors";
 import { resolveModel } from "@/lib/llm/provider";
 import { connectPortfolioMcp } from "@/lib/mcp/client";
 
@@ -28,7 +28,7 @@ const limiter = createRateLimiter({ limit: 20, windowMs: 10 * 60 * 1000 });
 export async function POST(request: Request): Promise<Response> {
   const quota = limiter.check(clientKeyFromHeaders(request.headers));
   if (!quota.allowed) {
-    return Response.json(describeError(null, { code: "rate_limited" }), {
+    return Response.json(describeError(undefined, { code: "rate_limited" }), {
       status: 429,
       headers: { "Retry-After": String(quota.retryAfterSeconds) },
     });
@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
     owner = resolveOwner(process.env);
   } catch (error) {
     console.error("[chat] configuration error:", error);
-    return Response.json(describeError(error, { code: "provider_unconfigured" }), { status: 500 });
+    return Response.json(describeError(messageOf(error), { code: "provider_unconfigured" }), { status: 500 });
   }
 
   let connection: Awaited<ReturnType<typeof connectPortfolioMcp>>;
@@ -54,7 +54,7 @@ export async function POST(request: Request): Promise<Response> {
     connection = await connectPortfolioMcp({ owner });
   } catch (error) {
     console.error("[chat] MCP connection failed:", error);
-    return Response.json(describeError(error, { code: "upstream_failure" }), { status: 500 });
+    return Response.json(describeError(messageOf(error), { code: "upstream_failure" }), { status: 500 });
   }
 
   try {
@@ -82,6 +82,6 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     await connection.close();
     console.error("[chat] request failed:", error);
-    return Response.json(describeError(error, { code: "upstream_failure" }), { status: 500 });
+    return Response.json(describeError(messageOf(error), { code: "upstream_failure" }), { status: 500 });
   }
 }
