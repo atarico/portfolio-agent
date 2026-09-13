@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createRateLimiter, type RateLimitDecision, type RateLimiter } from "@/lib/chat/rate-limit";
 
@@ -27,6 +27,9 @@ vi.mock("@/lib/llm/provider", () => ({
 import { isStepCount, streamText } from "ai";
 
 import { MAX_AGENT_STEPS } from "@/lib/agent/instructions";
+import { ERROR_MESSAGES } from "@/lib/http/errors";
+import { connectPortfolioMcp } from "@/lib/mcp/client";
+import { resolveModel } from "@/lib/llm/provider";
 
 import { createChatRouteHandler } from "./route";
 
@@ -51,6 +54,18 @@ function chatRequest(body: unknown, init: RequestInit = {}): Request {
 }
 
 describe("createChatRouteHandler", () => {
+  // Call counts below are absolute ("exactly once"), which only holds if each test
+  // starts from a clean slate; without this they would silently depend on file order.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Tests below silence console.error with a spy; without this, the silence would
+  // leak into later tests and hide a log that was supposed to be asserted.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("rate limits through the shared guard floor before any request parsing", async () => {
     const limiter = createRateLimiter({ limit: 1, windowMs: 10_000 });
     const handler = createChatRouteHandler({ env: {}, limiter });
@@ -105,5 +120,83 @@ describe("createChatRouteHandler", () => {
     const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ stopWhen?: unknown }];
     const lastIsStepCountResult = vi.mocked(isStepCount).mock.results.at(-1)?.value;
     expect(options.stopWhen).toBe(lastIsStepCountResult);
+  });
+
+  it("rejects a malformed body with 400 invalid_request and surfaces the reason outside production", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    // Last message must come from the user; this one is from the assistant.
+    const response = await handler(
+      chatRequest({ messages: [{ role: "assistant", parts: [{ type: "text", text: "hi" }] }] }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: ERROR_MESSAGES.invalid_request,
+      code: "invalid_request",
+    });
+    // The request never reached the model: validation is a guard, not a filter.
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 provider_unconfigured when the model cannot be resolved", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(resolveModel).mockImplementationOnce(() => {
+      throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is missing");
+    });
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    const response = await handler(
+      chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: ERROR_MESSAGES.provider_unconfigured,
+      code: "provider_unconfigured",
+    });
+    // A misconfigured server is an operator problem: it must leave a trace.
+    expect(logged).toHaveBeenCalledTimes(1);
+    // No MCP connection is opened once configuration has already failed.
+    expect(connectPortfolioMcp).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 upstream_failure when the MCP connection cannot be established", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(connectPortfolioMcp).mockRejectedValueOnce(new Error("MCP transport closed"));
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    const response = await handler(
+      chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: ERROR_MESSAGES.upstream_failure,
+      code: "upstream_failure",
+    });
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(streamText).not.toHaveBeenCalled();
+  });
+
+  it("closes the MCP connection when dispatch fails after it was opened", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const close = vi.fn(async () => undefined);
+    vi.mocked(connectPortfolioMcp).mockResolvedValueOnce({
+      tools: async () => {
+        throw new Error("tool listing failed");
+      },
+      close,
+    } as unknown as Awaited<ReturnType<typeof connectPortfolioMcp>>);
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    const response = await handler(
+      chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }),
+    );
+
+    expect(response.status).toBe(500);
+    // The leak this pins: an open connection abandoned on the error path.
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledTimes(1);
   });
 });
