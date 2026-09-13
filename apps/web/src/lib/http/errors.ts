@@ -1,6 +1,12 @@
-type Env = Record<string, string | undefined>;
+import { isProduction, type Env } from "./env";
 
-export type ErrorCode = "invalid_request" | "rate_limited" | "provider_unconfigured" | "upstream_failure";
+export type ErrorCode =
+  | "invalid_request"
+  | "rate_limited"
+  | "provider_unconfigured"
+  | "upstream_failure"
+  | "unauthorized"
+  | "endpoint_unconfigured";
 
 /** Opaque, client-safe messages. Provider and transport details never leave the server log. */
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
@@ -8,6 +14,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   rate_limited: "Too many requests. Please wait a moment and try again.",
   provider_unconfigured: "The assistant is not configured yet. Check the server logs.",
   upstream_failure: "The assistant could not complete the request. Please try again.",
+  unauthorized: "Unauthorized.",
+  endpoint_unconfigured: "This endpoint is not configured. Check the server logs.",
 };
 
 export interface ClientErrorBody {
@@ -22,14 +30,20 @@ export interface DescribeErrorOptions {
   env?: Env;
 }
 
-export function isProduction(env: Env = process.env): boolean {
-  return env.NODE_ENV === "production";
-}
-
-/** Builds the JSON body for an error response. */
-export function describeError(error: unknown, { code, env = process.env }: DescribeErrorOptions): ClientErrorBody {
+/**
+ * Builds the JSON body for an error response.
+ *
+ * `detail` is an explicit contract, not a raw caught error: pass `undefined`
+ * when there is nothing safe to show (the body carries only the opaque
+ * message), or a string message to surface outside production. Callers that
+ * hold an `unknown` error must convert it to a string first (see
+ * {@link clientErrorMessage}'s internal `messageOf` for the same pattern).
+ * This keeps a nullish value from ever being stringified into the response,
+ * which previously shipped a literal `"detail": "null"`.
+ */
+export function describeError(detail: string | undefined, { code, env = process.env }: DescribeErrorOptions): ClientErrorBody {
   const body: ClientErrorBody = { error: ERROR_MESSAGES[code], code };
-  if (!isProduction(env)) body.detail = messageOf(error);
+  if (!isProduction(env) && detail !== undefined) body.detail = detail;
   return body;
 }
 
@@ -38,6 +52,7 @@ export function clientErrorMessage(error: unknown, env: Env = process.env): stri
   return isProduction(env) ? ERROR_MESSAGES.upstream_failure : `${ERROR_MESSAGES.upstream_failure} (${messageOf(error)})`;
 }
 
-function messageOf(error: unknown): string {
+/** Converts a caught `unknown` error to a string, for callers that then pass it to {@link describeError}. */
+export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
