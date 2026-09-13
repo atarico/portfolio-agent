@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Read-only: this workflow never writes to the repository, comments, or deploys.
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes the run already in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck, lint, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Reads the pinned version from package.json "packageManager",
+      # so CI and local development cannot drift apart.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      # 22 is the floor declared in "engines". Running the floor here proves
+      # it still works even while local development is on a newer Node.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Fails if the lockfile does not match the manifests, instead of
+      # silently resolving different versions than the ones committed.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm -r test
