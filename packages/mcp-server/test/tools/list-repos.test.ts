@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { listRepos } from "../../src/tools/list-repos.ts";
+import { ToolInputError } from "../../src/validation.ts";
 import { FakeGitHub, repo } from "../fake-github.ts";
 
 const github = new FakeGitHub({
@@ -55,5 +56,10 @@ describe("listRepos", () => {
     const result = await listRepos(github, { owner: "ghost" });
 
     expect(result).toEqual({ owner: "ghost", total: 0, repos: [] });
+  });
+
+  it("rejects a non-positive limit instead of silently returning nearly everything", async () => {
+    await expect(listRepos(github, { owner: "octocat", limit: 0 })).rejects.toThrow(ToolInputError);
+    await expect(listRepos(github, { owner: "octocat", limit: -1 })).rejects.toThrow(ToolInputError);
   });
 });
