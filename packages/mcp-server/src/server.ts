@@ -44,7 +44,8 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    async ({ includeForks, limit }) => run(() => listRepos(github, { owner, includeForks, limit })),
+    async ({ includeForks, limit }) =>
+      run("list_repos", () => listRepos(github, { owner, includeForks, limit })),
   );
 
   server.registerTool(
@@ -66,7 +67,7 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ repo, maxChars }) =>
-      run(() => getReadme(github, { owner, repo: validateRepo(repo), maxChars })),
+      run("get_readme", () => getReadme(github, { owner, repo: validateRepo(repo), maxChars })),
   );
 
   server.registerTool(
@@ -80,7 +81,7 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    async ({ repo }) => run(() => detectStack(github, { owner, repo: validateRepo(repo) })),
+    async ({ repo }) => run("detect_stack", () => detectStack(github, { owner, repo: validateRepo(repo) })),
   );
 }
 
@@ -91,8 +92,15 @@ export function createPortfolioMcpServer(deps: PortfolioServerDeps): McpServer {
   return server;
 }
 
-/** Runs a tool body and maps success/failure to an MCP result the model can read. */
-async function run(body: () => Promise<Record<string, unknown>>): Promise<CallToolResult> {
+/**
+ * Runs a tool body and maps success/failure to an MCP result the model can read.
+ *
+ * A failure is logged server-side with the failing tool's name: this is the only
+ * layer that sees the real error (a GitHub 403, the unauthenticated rate limit, a
+ * 5xx, a network error, ...) before it is flattened into a generic MCP error result,
+ * so without this log the operator has no signal that anything went wrong.
+ */
+async function run(name: string, body: () => Promise<Record<string, unknown>>): Promise<CallToolResult> {
   try {
     const payload = await body();
     return {
@@ -100,6 +108,7 @@ async function run(body: () => Promise<Record<string, unknown>>): Promise<CallTo
       structuredContent: payload,
     };
   } catch (error) {
+    console.error(`[mcp-server] tool "${name}" failed:`, error);
     const message = error instanceof Error ? error.message : String(error);
     return { isError: true, content: [{ type: "text", text: message }] };
   }
