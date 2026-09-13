@@ -1,10 +1,11 @@
 import type { GitHubPort } from "../ports/github.ts";
+import { ToolInputError } from "../validation.ts";
 
 export interface ListReposInput {
   owner: string;
   /** Include forked repositories. Defaults to `false`. */
   includeForks?: boolean;
-  /** Maximum number of repositories to return. Defaults to DEFAULT_REPO_LIMIT. */
+  /** Maximum number of repositories to return. Must be a positive number. Defaults to DEFAULT_REPO_LIMIT. */
   limit?: number;
 }
 
@@ -32,6 +33,10 @@ export async function listRepos(
   github: GitHubPort,
   { owner, includeForks = false, limit = DEFAULT_REPO_LIMIT }: ListReposInput,
 ): Promise<ListReposResult> {
+  if (limit < 1) {
+    throw new ToolInputError(`Invalid limit: ${limit}. Must be a positive number.`);
+  }
+
   const all = await github.listRepos(owner);
 
   const matching = all
