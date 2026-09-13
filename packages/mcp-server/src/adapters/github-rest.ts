@@ -25,6 +25,15 @@ interface GitHubRepoPayload {
 const JSON_MEDIA_TYPE = "application/vnd.github+json";
 const RAW_MEDIA_TYPE = "application/vnd.github.raw+json";
 
+/**
+ * Upper bound for one outbound GitHub call. GitHub is normally fast; 10s is
+ * generous for a slow-but-alive response while still failing well before the
+ * platform's 60s function timeout, so a slow (not down) GitHub gives the user
+ * a prompt, specific error instead of a minute-long spinner. The platform
+ * timeout remains the backstop, not the primary bound.
+ */
+const REQUEST_TIMEOUT_MS = 10_000;
+
 /** GitHub REST API implementation of {@link GitHubPort}. */
 export class GitHubRestAdapter implements GitHubPort {
   private readonly token: string | undefined;
@@ -72,7 +81,7 @@ export class GitHubRestAdapter implements GitHubPort {
     };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
-    return this.fetchImpl(url, { headers });
+    return this.fetchImpl(url, { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   }
 
   private async assertOk(response: Response, url: string): Promise<void> {

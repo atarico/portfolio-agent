@@ -5,6 +5,7 @@ import { GitHubRestAdapter } from "../../src/adapters/github-rest.ts";
 interface RecordedRequest {
   url: string;
   headers: Record<string, string>;
+  signal: AbortSignal | null | undefined;
 }
 
 function fakeFetch(routes: Record<string, () => Response>) {
@@ -12,7 +13,7 @@ function fakeFetch(routes: Record<string, () => Response>) {
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const headers = Object.fromEntries(new Headers(init?.headers).entries());
-    requests.push({ url, headers });
+    requests.push({ url, headers, signal: init?.signal });
     const route = routes[url];
     return route ? route() : new Response("not found", { status: 404 });
   };
@@ -62,6 +63,18 @@ describe("GitHubRestAdapter", () => {
     ]);
     expect(requests[0]?.headers["accept"]).toBe("application/vnd.github+json");
     expect(requests[0]?.headers["authorization"]).toBeUndefined();
+  });
+
+  it("bounds every outbound request with a timeout signal", async () => {
+    const { fetchImpl, requests } = fakeFetch({
+      "https://api.github.com/users/octocat/repos?type=owner&sort=pushed&per_page=100": () => json([]),
+    });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    await adapter.listRepos("octocat");
+
+    expect(requests[0]?.signal).toBeInstanceOf(AbortSignal);
+    expect(requests[0]?.signal?.aborted).toBe(false);
   });
 
   it("sends a bearer token when configured", async () => {
