@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createRateLimiter, type RateLimitDecision, type RateLimiter } from "@/lib/chat/rate-limit";
 import type { Env } from "@/lib/http/env";
-import { authorizeMcpRequest } from "@/lib/mcp/auth";
 
 import { createMcpRouteHandler, portfolioServerFor } from "./route";
 
@@ -29,12 +28,6 @@ function initializeRequest(): Request {
     }),
   });
 }
-
-describe("route module resolution", () => {
-  it("resolves the @/ path alias", () => {
-    expect(typeof authorizeMcpRequest).toBe("function");
-  });
-});
 
 describe("createMcpRouteHandler", () => {
   it("refuses in production without MCP_AUTH_TOKEN, without ever constructing a server", async () => {
