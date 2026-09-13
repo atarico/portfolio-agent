@@ -1,7 +1,8 @@
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type { GitHubPort } from "../src/ports/github.ts";
 import { createPortfolioMcpServer } from "../src/server.ts";
 import { FakeGitHub, repo } from "./fake-github.ts";
 
@@ -101,5 +102,38 @@ describe("portfolio MCP server", () => {
 describe("createPortfolioMcpServer", () => {
   it("refuses to start with an invalid configured owner", () => {
     expect(() => createPortfolioMcpServer({ github, owner: "-bad" })).toThrow(/owner/i);
+  });
+});
+
+describe("tool failure logging", () => {
+  it("logs the failing tool name and error server-side, without changing the model-facing result", async () => {
+    const upstreamError = new Error("GitHub API 403 for https://api.github.com/users/octocat/repos: API rate limit exceeded");
+    const failingGithub: GitHubPort = {
+      listRepos: async () => {
+        throw upstreamError;
+      },
+      getReadme: async () => {
+        throw upstreamError;
+      },
+      getFile: async () => {
+        throw upstreamError;
+      },
+    };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createPortfolioMcpServer({ github: failingGithub, owner: "octocat" });
+    await server.connect(serverTransport);
+    const failingClient = new Client({ name: "test-client", version: "0.0.0" });
+    await failingClient.connect(clientTransport);
+
+    const result = await failingClient.callTool({ name: "list_repos", arguments: {} });
+
+    expect(result).toEqual({ isError: true, content: [{ type: "text", text: upstreamError.message }] });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("list_repos"), upstreamError);
+
+    await failingClient.close();
+    errorSpy.mockRestore();
   });
 });
