@@ -2,7 +2,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 
-type Env = Record<string, string | undefined>;
+import type { Env } from "@/lib/http/env";
 
 export type ModelFactory = (apiKey: string) => (modelId: string) => Exclude<LanguageModel, string>;
 

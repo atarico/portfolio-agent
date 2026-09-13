@@ -2,7 +2,7 @@ import { createMCPClient } from "@ai-sdk/mcp";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { GitHubRestAdapter, type GitHubPort, createPortfolioMcpServer } from "@portfolio-agent/mcp-server";
 
-type Env = Record<string, string | undefined>;
+import type { Env } from "@/lib/http/env";
 
 export interface PortfolioMcpConnection {
   /** MCP tools converted to AI SDK tools, keyed by tool name. */
