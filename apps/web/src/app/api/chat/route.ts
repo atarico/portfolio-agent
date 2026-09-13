@@ -76,6 +76,17 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
       const result = streamText({
         model: resolved.model,
         instructions: buildInstructions(owner),
+        // Trust boundary: `parsed.messages` is client-authored history. The client controls
+        // the whole conversation it sends back, including assistant turns and tool-call
+        // results (a caller can fabricate a "tool result" that the server never produced),
+        // and `convertToModelMessages` replays all of it into the model context unverified.
+        // This is acceptable only because the MCP tools reached from this context are
+        // read-only and pinned to the server-configured `owner` above (see `resolveOwner`):
+        // a fabricated tool result can mislead the model about what a tool returned, but it
+        // cannot widen what the model is allowed to call or redirect a call to another
+        // owner's data. If any tool ever becomes write-capable or accepts a caller-supplied
+        // target (owner, repo, path, ...) instead of a server-pinned one, this trust boundary
+        // must be revisited (e.g. with server-side session state or signed history).
         messages: await convertToModelMessages(parsed.messages),
         tools,
         stopWhen: isStepCount(MAX_AGENT_STEPS),
