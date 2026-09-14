@@ -9,7 +9,10 @@ export default defineConfig({
     },
   },
   test: {
+    // Node is the default because almost every test here is a pure function and
+    // pays nothing for a DOM. Component tests opt in per file with a
+    // `@vitest-environment jsdom` docblock rather than making everyone pay.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 });
