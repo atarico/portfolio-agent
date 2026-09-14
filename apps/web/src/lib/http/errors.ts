@@ -61,3 +61,35 @@ export function clientErrorMessage(error: unknown, env: Env = process.env): stri
 export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/**
+ * Turns a failed response body back into text a reader should actually see.
+ *
+ * The chat transport surfaces a non-streaming error response as its raw body
+ * string, so rendering that directly puts the serialized envelope - braces,
+ * escaped quotes and the internal `code` - in front of the visitor. This parses
+ * it back into the contract {@link describeError} produced and returns the
+ * message that contract exists to carry.
+ *
+ * `detail` is appended when present, with no environment check here: the server
+ * already made that decision and only ever includes it outside production.
+ *
+ * Anything that is not a contract body is returned unchanged, so a proxy's HTML
+ * error page or a transport failure like "Failed to fetch" still reaches the
+ * reader instead of being swallowed by a parser that did not recognise it.
+ */
+export function clientErrorText(raw: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) return raw;
+
+  const { error, detail } = parsed as { error?: unknown; detail?: unknown };
+  if (typeof error !== "string") return raw;
+
+  return typeof detail === "string" && detail !== "" ? `${error} (${detail})` : error;
+}

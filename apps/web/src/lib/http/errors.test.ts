@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ERROR_MESSAGES, clientErrorMessage, describeError } from "./errors";
+import { ERROR_MESSAGES, clientErrorMessage, clientErrorText, describeError } from "./errors";
 
 const boom = new Error("Missing GOOGLE_GENERATIVE_AI_API_KEY at /srv/app/.env");
 
@@ -42,5 +42,43 @@ describe("clientErrorMessage", () => {
     expect(clientErrorMessage(boom, { NODE_ENV: "production" })).toBe(ERROR_MESSAGES.upstream_failure);
     expect(clientErrorMessage(boom, { NODE_ENV: "test" })).toContain(boom.message);
     expect(clientErrorMessage("string error", { NODE_ENV: "test" })).toContain("string error");
+  });
+});
+
+describe("clientErrorText", () => {
+  it("renders the human message from a failed response body instead of the serialized envelope", () => {
+    const body = JSON.stringify(describeError(undefined, { code: "upstream_failure", env: { NODE_ENV: "production" } }));
+
+    const text = clientErrorText(body);
+
+    expect(text).toBe(ERROR_MESSAGES.upstream_failure);
+    // The envelope itself must never reach the reader: no braces, no quotes, no code.
+    expect(text).not.toContain("{");
+    expect(text).not.toContain('"');
+    expect(text).not.toContain("upstream_failure");
+  });
+
+  it("appends the detail when the server chose to include one", () => {
+    const body = JSON.stringify(
+      describeError(boom.message, { code: "provider_unconfigured", env: { NODE_ENV: "development" } }),
+    );
+
+    const text = clientErrorText(body);
+
+    // `detail` only reaches the body outside production, so honouring it here
+    // surfaces the development hint without widening what production exposes.
+    expect(text).toContain(ERROR_MESSAGES.provider_unconfigured);
+    expect(text).toContain(boom.message);
+    expect(text).not.toContain("\\");
+  });
+
+  it("passes through text that is not a contract body, rather than hiding it", () => {
+    expect(clientErrorText("Failed to fetch")).toBe("Failed to fetch");
+    expect(clientErrorText("")).toBe("");
+    expect(clientErrorText("<html>502 Bad Gateway</html>")).toBe("<html>502 Bad Gateway</html>");
+    // Valid JSON, but not this contract.
+    expect(clientErrorText('["nope"]')).toBe('["nope"]');
+    expect(clientErrorText('{"code":"upstream_failure"}')).toBe('{"code":"upstream_failure"}');
+    expect(clientErrorText("null")).toBe("null");
   });
 });
