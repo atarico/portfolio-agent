@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 
 import { describeToolPart } from "@/lib/chat/tool-parts";
 
+import { Markdown } from "./markdown";
 import { ToolCallBadge } from "./tool-call-badge";
 
 interface MessageBubbleProps {
@@ -24,10 +25,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           const key = `${message.id}-${index}`;
 
           if (part.type === "text") {
-            return (
+            // Only the assistant's text is Markdown. The user's stays literal: it is what
+            // they typed, and reformatting their own words back at them would be wrong -
+            // a message about `**bold**` should read as they wrote it.
+            return isUser ? (
               <p key={key} className="whitespace-pre-wrap text-[15px] leading-relaxed">
                 {part.text}
               </p>
+            ) : (
+              <Markdown key={key}>{part.text}</Markdown>
             );
           }
 
