@@ -122,6 +122,15 @@ describe("createChatRouteHandler", () => {
     expect(options.stopWhen).toBe(lastIsStepCountResult);
   });
 
+  it("does not retry a failed model call, so a quota error costs one unit of the budget and not three", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ maxRetries?: number }];
+    expect(options.maxRetries).toBe(0);
+  });
+
   it("rejects a malformed body with 400 invalid_request and surfaces the reason outside production", async () => {
     const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
 
