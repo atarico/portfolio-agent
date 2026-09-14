@@ -88,6 +88,7 @@ Then ask Claude Code: *"Use portfolio-agent to list the repos and detect the sta
 
 ## Security notes (demo-grade, but deliberate)
 
+- **The dev server binds to `127.0.0.1`, not `0.0.0.0`.** `next dev` defaults to every interface, which quietly turns the bullet above into a different statement: with `MCP_AUTH_TOKEN` unset, anyone on the same network could call `/api/mcp` and `/api/chat` unauthenticated and spend the free-tier quota. "Open outside production" was always meant as "open to you"; the `-H` flag in the `dev` script is what makes that true. Pass `-H 0.0.0.0` deliberately when you want to reach the app from a phone on the same Wi-Fi.
 - `/api/mcp` is open outside production unless `MCP_AUTH_TOKEN` is set. **In production, an unset `MCP_AUTH_TOKEN` fails closed**: every request is refused with a 503 rather than silently staying open. Set the token before deploying with any credential worth protecting.
 - Both public endpoints (`/api/mcp` and `/api/chat`) share one guard floor (`lib/http/guards.ts`): rate limit first, then auth. `/api/mcp` and `/api/chat` each get their own rate-limiter instance, so one endpoint's traffic never evicts the other's buckets.
 - `/api/chat` validates the body with zod (message count, parts, text length, roles) and applies an in-memory per-IP rate limit (20 requests / 10 minutes). The limiter is per process, so on serverless it is best-effort; use a shared store for real traffic.

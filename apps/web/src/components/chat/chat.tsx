@@ -4,6 +4,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useMemo, useState } from "react";
 
+import { clientErrorText } from "@/lib/http/errors";
+
 import { ChatInput } from "./chat-input";
 import { ErrorBanner } from "./error-banner";
 import { MessageList } from "./message-list";
@@ -30,7 +32,9 @@ export function Chat({ owner }: ChatProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <MessageList messages={messages} owner={owner} status={status} onSuggestion={submit} />
-      {error ? <ErrorBanner message={error.message} onDismiss={clearError} /> : null}
+      {/* `error.message` is the raw response body for a non-streaming failure, so it goes
+          through the contract parser rather than straight to the reader. */}
+      {error ? <ErrorBanner message={clientErrorText(error.message)} onDismiss={clearError} /> : null}
       <ChatInput
         value={input}
         busy={busy}
