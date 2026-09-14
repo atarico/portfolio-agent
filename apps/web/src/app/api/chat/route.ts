@@ -90,6 +90,16 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
         messages: await convertToModelMessages(parsed.messages),
         tools,
         stopWhen: isStepCount(MAX_AGENT_STEPS),
+        // No retries. The SDK's default is 2, and its backoff only honours a
+        // Retry-After *header*; the free tiers this runs on report their wait in
+        // the error body instead, so the retries fire at 2s and 4s against a
+        // window that needs 20+. They cannot succeed, and each attempt spends
+        // another request from a per-minute budget of 20 - turning one failed
+        // answer into three. Failing once, immediately, with a message the user
+        // can act on beats stalling six seconds to fail anyway at triple cost.
+        // The trade is losing automatic recovery from a transient 5xx; a person
+        // watching a chat can press enter again, and that costs one unit.
+        maxRetries: 0,
         // Propagates the client's Stop button (and any client-side disconnect) to the
         // agent loop and the LLM stream, instead of letting server-side work (further
         // MCP/GitHub calls, further generation) run to completion or maxDuration on a
