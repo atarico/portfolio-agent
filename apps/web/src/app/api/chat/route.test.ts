@@ -122,6 +122,36 @@ describe("createChatRouteHandler", () => {
     expect(options.stopWhen).toBe(lastIsStepCountResult);
   });
 
+  it("warns the operator when the agent answered only because it ran out of steps", async () => {
+    // Hitting the cap is not an error: the model stops and answers with whatever it
+    // gathered. Without this log nobody - operator or visitor - can tell a complete
+    // answer from one that ran out of budget mid-thought.
+    const logged = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [
+      { onFinish?: (event: { steps: unknown[] }) => void },
+    ];
+    options.onFinish?.({ steps: new Array(MAX_AGENT_STEPS).fill({}) });
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0][0])).toContain(String(MAX_AGENT_STEPS));
+  });
+
+  it("stays quiet when the agent finished within its step budget", async () => {
+    const logged = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [
+      { onFinish?: (event: { steps: unknown[] }) => void },
+    ];
+    options.onFinish?.({ steps: new Array(MAX_AGENT_STEPS - 1).fill({}) });
+
+    expect(logged).not.toHaveBeenCalled();
+  });
+
   it("does not retry a failed model call, so a quota error costs one unit of the budget and not three", async () => {
     const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
 

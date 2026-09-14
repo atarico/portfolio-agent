@@ -106,6 +106,18 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
         // request the client already abandoned — both providers are free-tier and
         // rate-limited, so an unbounded abandoned request burns quota for nothing.
         abortSignal: request.signal,
+        // Running out of steps is not an error: the agent stops and answers with
+        // whatever it gathered so far. Nothing else in the pipeline can tell that
+        // apart from a complete answer, so without this the operator learns about
+        // a truncated reasoning chain only if a visitor happens to mention it.
+        onFinish: ({ steps }) => {
+          if (steps.length >= MAX_AGENT_STEPS) {
+            console.warn(
+              `[chat] step budget exhausted: answered after ${steps.length} of ${MAX_AGENT_STEPS} steps. ` +
+                "The answer may be incomplete - the model still wanted to work.",
+            );
+          }
+        },
         onEnd: connection.close,
         onError: ({ error }) => {
           console.error("[chat] stream error:", error);
