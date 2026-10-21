@@ -23,6 +23,7 @@ function Question({ message }: MessageBubbleProps) {
     <div className="flex gap-3 sm:gap-4">
       <Marker className="text-signal-ink">Q.</Marker>
       <div className="flex min-w-0 flex-col gap-2 pt-0.5">
+        <span className="sr-only">You asked:</span>
         {message.parts.map((part, index) =>
           // The user's text stays literal: it is what they typed, and reformatting
           // their own words back at them would be wrong - a message about `**bold**`
@@ -50,6 +51,7 @@ function Answer({ message }: MessageBubbleProps) {
     <div className="flex gap-3 sm:gap-4">
       <Marker className="text-ink-faint">A.</Marker>
       <div className="flex min-w-0 flex-1 flex-col gap-4 rounded-xl border border-rule bg-paper-raised px-4 py-4 shadow-[0_18px_40px_-32px_rgb(0_0_0/0.45)] sm:px-5">
+        <span className="sr-only">Answer:</span>
         {toBlocks(message).map((block) =>
           block.kind === "text" ? (
             <Markdown key={block.key}>{block.text}</Markdown>
@@ -67,7 +69,9 @@ function Answer({ message }: MessageBubbleProps) {
           <footer className="flex items-center gap-2 border-t border-dashed border-rule pt-3 font-mono text-[11px] text-ink-faint">
             <span aria-hidden className="size-1.5 rounded-full bg-ok" />
             <span className="uppercase tracking-[0.14em]">answered by</span>
-            <span className="text-ink-soft">{servedBy}</span>
+            <span className="text-ink-soft" translate="no">
+              {servedBy}
+            </span>
           </footer>
         ) : null}
       </div>

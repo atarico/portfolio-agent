@@ -36,8 +36,10 @@ const components: Components = {
   h2: ({ children }) => <h2 className="font-display text-lg tracking-[-0.01em]">{children}</h2>,
   h3: ({ children }) => <h3 className="text-[15px] font-semibold">{children}</h3>,
 
+  // Inline code is mostly repository and package names: identifiers a browser
+  // translating the page must leave alone.
   code: ({ children }) => (
-    <code className="rounded border border-rule bg-paper px-1 py-0.5 font-mono text-[13px] text-ink">
+    <code translate="no" className="rounded border border-rule bg-paper px-1 py-0.5 font-mono text-[13px] text-ink">
       {children}
     </code>
   ),
@@ -60,7 +62,7 @@ const components: Components = {
   // Tables come from remark-gfm; they scroll rather than stretch the bubble.
   table: ({ children }) => (
     <div className="overflow-x-auto rounded-lg border border-rule">
-      <table className="w-full border-collapse text-left text-sm">{children}</table>
+      <table className="w-full border-collapse text-left text-sm tabular-nums">{children}</table>
     </div>
   ),
   th: ({ children }) => (

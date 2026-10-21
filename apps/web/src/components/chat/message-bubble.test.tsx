@@ -42,7 +42,7 @@ describe("MessageBubble", () => {
       <MessageBubble message={message("assistant", "Done.", { model: "gemini-3.6-flash", durationMs: 2_400 })} />,
     );
 
-    expect(container.textContent).toContain("gemini-3.6-flash · 2.4 s");
+    expect(container.textContent).toContain("gemini-3.6-flash · 2.4\u00a0s");
   });
 
   it("names the model only once the answer has finished, not while it is still working", () => {
@@ -82,5 +82,13 @@ describe("MessageBubble", () => {
       expect.stringContaining("detect_stack"),
     ]);
     expect(container.textContent).toContain("Two repos.");
+    // Tool names are identifiers: a browser translating the page must leave them alone.
+    expect(traces[0]!.querySelector('[translate="no"]')?.textContent).toContain("list_repos");
+  });
+
+  it("tells screen readers who is speaking, since the Q. and A. marks are decorative", () => {
+    expect(render(<MessageBubble message={message("user", "hi")} />).container.textContent).toContain("You asked");
+    cleanup();
+    expect(render(<MessageBubble message={message("assistant", "Hello.")} />).container.textContent).toContain("Answer");
   });
 });

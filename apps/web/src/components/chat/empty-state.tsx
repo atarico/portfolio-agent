@@ -25,8 +25,12 @@ export function EmptyState({ owner, onPick }: EmptyStateProps) {
   return (
     <section className="grid flex-1 content-center gap-10 py-10 sm:grid-cols-12 sm:gap-8 sm:py-14">
       <div className="rise sm:col-span-5" style={delay(80)}>
-        <h2 className="font-display text-[34px] leading-[1.05] tracking-[-0.015em] sm:text-[40px]">
-          What has <em className="text-signal-ink">{owner}</em> been building?
+        <h2 className="font-display text-[34px] leading-[1.05] tracking-[-0.015em] text-balance sm:text-[40px]">
+          What has{" "}
+          <em className="text-signal-ink" translate="no">
+            {owner}
+          </em>{" "}
+          been building?
         </h2>
         <ol className="mt-8 flex flex-col gap-4">
           {STEPS.map((step, index) => (

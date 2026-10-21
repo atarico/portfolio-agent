@@ -9,17 +9,23 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 sm:px-8">
+      <a
+        href="#chat"
+        className="sr-only rounded-lg bg-ink font-mono text-[12px] text-paper focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-3 focus:py-2"
+      >
+        Skip to the chat
+      </a>
       <header className="rise pt-8 sm:pt-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-signal-ink">
               Live agent · MCP tools · GitHub
             </p>
-            <h1 className="mt-2 font-display text-[44px] leading-[0.95] tracking-[-0.02em] sm:text-6xl">
+            <h1 className="mt-2 font-display text-[44px] leading-[0.95] tracking-[-0.02em] text-balance sm:text-6xl">
               Portfolio Agent
             </h1>
           </div>
-          <dl className="flex flex-col gap-1 font-mono text-[11.5px] sm:items-end">
+          <dl className="flex flex-col gap-1 font-mono text-[11.5px] sm:items-end" translate="no">
             <div className="flex gap-3">
               <dt className="text-ink-faint">models</dt>
               <dd className="text-ink">{models}</dd>
@@ -37,6 +43,7 @@ export default function HomePage() {
             href={`https://github.com/${owner}`}
             target="_blank"
             rel="noreferrer"
+            translate="no"
           >
             github.com/{owner}
           </a>{" "}
@@ -45,7 +52,7 @@ export default function HomePage() {
         <div aria-hidden className="mt-6 border-t border-rule-strong" />
         <div aria-hidden className="mt-[3px] border-t border-rule" />
       </header>
-      <main className="flex min-h-0 flex-1 flex-col">
+      <main id="chat" className="flex min-h-0 flex-1 flex-col">
         <Chat owner={owner} />
       </main>
     </div>

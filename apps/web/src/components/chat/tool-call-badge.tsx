@@ -25,7 +25,7 @@ export function ToolCallBadge({ tool }: ToolCallBadgeProps) {
     <details className="group">
       <summary className="flex cursor-pointer list-none items-center gap-2.5 py-1.5 font-mono text-[12.5px] select-none [&::-webkit-details-marker]:hidden">
         <StatusGlyph state={tool.state} />
-        <span className="min-w-0 truncate">
+        <span className="min-w-0 truncate" translate="no">
           <span className="font-medium text-ink">{tool.name}</span>
           <span className="text-ink-faint">({formatToolArgs(tool.input)})</span>
         </span>
@@ -53,7 +53,7 @@ function StatusGlyph({ state }: { state: ToolPartState }) {
     return (
       <span
         aria-hidden
-        className="inline-block size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-signal border-t-transparent"
+        className="inline-block size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-signal border-t-transparent motion-reduce:animate-none"
       />
     );
   }

@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 interface ChatInputProps {
   value: string;
   busy: boolean;
@@ -7,6 +9,14 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ value, busy, onChange, onSubmit, onStop }: ChatInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus on load only with a precise pointer: on a touch screen it would open
+  // the keyboard over the suggested questions before anyone asked for it.
+  useEffect(() => {
+    if (window.matchMedia("(pointer: fine)").matches) inputRef.current?.focus();
+  }, []);
+
   return (
     <form
       className="paper sticky bottom-0 z-10 -mx-4 px-4 pt-3 pb-5 sm:-mx-8 sm:px-8"
@@ -15,20 +25,23 @@ export function ChatInput({ value, busy, onChange, onSubmit, onStop }: ChatInput
         onSubmit();
       }}
     >
-      <div className="flex items-center gap-2 rounded-2xl border border-rule-strong/70 bg-paper-raised p-1.5 pl-4 shadow-[0_16px_36px_-28px_rgb(0_0_0/0.5)] transition-colors focus-within:border-signal">
+      <div className="flex items-center gap-2 rounded-2xl border border-rule-strong/70 bg-paper-raised p-1.5 pl-4 shadow-[0_16px_36px_-28px_rgb(0_0_0/0.5)] transition-[border-color,box-shadow] focus-within:border-signal focus-within:ring-3 focus-within:ring-signal/25">
+        {/* Stays enabled while the agent works: disabling it would drop focus on every
+            send, and the container already refuses a second question until this one ends. */}
         <input
+          ref={inputRef}
           className="min-w-0 flex-1 bg-transparent py-2 text-base outline-none placeholder:text-ink-faint focus-visible:outline-none"
+          name="question"
+          autoComplete="off"
           aria-label="Ask the portfolio agent"
           placeholder="Ask about a project, a stack, a README…"
           value={value}
-          disabled={busy}
-          autoFocus
           onChange={(event) => onChange(event.target.value)}
         />
         {busy ? (
           <button
             type="button"
-            className="rounded-xl border border-rule px-4 py-2.5 font-mono text-[12px] uppercase tracking-[0.12em] text-ink hover:border-ink"
+            className="rounded-xl border border-rule px-4 py-2.5 font-mono text-[12px] uppercase tracking-[0.12em] text-ink transition-colors hover:border-ink"
             onClick={onStop}
           >
             Stop
@@ -39,7 +52,7 @@ export function ChatInput({ value, busy, onChange, onSubmit, onStop }: ChatInput
             className="rounded-xl bg-signal px-4 py-2.5 font-mono text-[12px] uppercase tracking-[0.12em] text-on-signal transition-opacity hover:opacity-90 disabled:bg-rule disabled:text-ink-faint disabled:hover:opacity-100"
             disabled={!value.trim()}
           >
-            Ask ↵
+            Ask <span aria-hidden>↵</span>
           </button>
         )}
       </div>

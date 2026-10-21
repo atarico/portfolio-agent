@@ -22,15 +22,15 @@ describe("answerMetadata", () => {
 });
 
 describe("formatAnswerMetadata", () => {
-  it("reads as model and seconds", () => {
+  it("reads as model and seconds, the unit kept on the number's line", () => {
     expect(formatAnswerMetadata({ model: "openai/gpt-oss-120b", durationMs: 2_450 })).toBe(
-      "openai/gpt-oss-120b · 2.5 s",
+      "openai/gpt-oss-120b · 2.5\u00a0s",
     );
   });
 
   it("shows whatever part is known, and nothing when neither is", () => {
     expect(formatAnswerMetadata({ model: "gemini-3.6-flash" })).toBe("gemini-3.6-flash");
-    expect(formatAnswerMetadata({ durationMs: 900 })).toBe("0.9 s");
+    expect(formatAnswerMetadata({ durationMs: 900 })).toBe("0.9\u00a0s");
     expect(formatAnswerMetadata(undefined)).toBeNull();
   });
 });
