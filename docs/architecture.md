@@ -7,7 +7,7 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 1. **Browser.** `useChat` posts the whole conversation to `/api/chat` (a Next.js Route Handler).
 2. **Guards.** Rate limit per client, then body validation with zod: message count, part count, text length, and an aggregate 128 KiB budget (`lib/http/guards.ts`, `lib/chat/request.ts`).
 3. **Model.** `resolveModel(env)` turns `LLM_PROVIDER` into a fallback chain, built fresh for each request (`lib/llm/provider.ts`, `lib/llm/fallback.ts`).
-4. **Tools.** An MCP client connects to the MCP server **in-process** over an in-memory transport and lists its tools: `list_repos`, `get_readme`, `detect_stack` (`lib/mcp/client.ts`).
+4. **Tools.** An MCP client connects to the MCP server **in-process** over an in-memory transport and lists its tools: `list_repos`, `get_readme`, `detect_stack`, `list_contributions` (`lib/mcp/client.ts`).
 5. **History.** The client history is converted to model messages and pruned: earlier tool payloads and reasoning are dropped, and only the conversation's text is kept.
 6. **Agent loop.** `streamText` runs up to 6 steps. In each step the model either answers or calls tools. The AI SDK executes those tools through MCP and feeds the results back. The last step may not call tools.
 7. **GitHub.** Tools reach GitHub through `GitHubPort`, implemented by a REST adapter behind a process-wide cache.
@@ -61,6 +61,11 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 - **Why:** unauthenticated GitHub allows 60 requests per hour, and one question can spend 10-20 of them.
 - **What is cached:** successful results, including "not found". Failures are never cached. Concurrent identical reads share a single request.
 - **Cost:** answers can be up to 10 minutes stale. The cache lives in process memory, so on serverless it is best-effort per instance.
+
+### Contributions come from the search API, public only
+
+- **Why:** a portfolio is also what someone built with others. `list_contributions` runs two searches: every pull request the owner opened outside its own repositories (`is:pr author:<owner> -user:<owner>`), and the approved subset (`review:approved`), which the first search does not report.
+- **Cost:** with a scope-less token, private repositories (a company's, a client's) are invisible. The result carries that note and the instructions forbid presenting "not listed" as "never happened". A token with `repo` scope would show them, but `/api/mcp` would then serve private data to any caller, so it is not used. The search API allows 30 requests per minute, so results go through the same 10-minute cache.
 
 ### Server-pinned owner and a trust boundary on history
 

@@ -6,16 +6,20 @@ interface EmptyStateProps {
 }
 
 /** Questions verified against the live agent; the tag says what each one shows off. */
-const SUGGESTIONS = [
+const suggestionsFor = (owner: string) => [
   { tag: "recent work", text: "Which projects are the most recent?" },
   { tag: "stack", text: "What stack does the portfolio-agent repo use?" },
+  { tag: "collaboration", text: `Which other people's projects has ${owner} contributed to?` },
   { tag: "search", text: "Which repositories use Next.js?" },
   { tag: "en español", text: "¿Qué proyectos usan Supabase?" },
 ];
 
 const STEPS = [
   { title: "You ask", body: "in plain language, in English or Spanish." },
-  { title: "The agent picks tools", body: "list_repos, get_readme and detect_stack, served over MCP." },
+  {
+    title: "The agent picks tools",
+    body: "list_repos, get_readme, detect_stack and list_contributions, served over MCP.",
+  },
   { title: "It answers from GitHub", body: "with live data, and shows every call it made." },
 ];
 
@@ -49,7 +53,7 @@ export function EmptyState({ owner, onPick }: EmptyStateProps) {
           Try asking
         </p>
         <ul className="mt-3 border-b border-rule">
-          {SUGGESTIONS.map((suggestion, index) => (
+          {suggestionsFor(owner).map((suggestion, index) => (
             <li key={suggestion.text} className="rise" style={delay(200 + index * 70)}>
               <button
                 type="button"

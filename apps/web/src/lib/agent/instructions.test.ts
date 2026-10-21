@@ -10,6 +10,7 @@ describe("buildInstructions", () => {
     expect(instructions).toContain("list_repos");
     expect(instructions).toContain("get_readme");
     expect(instructions).toContain("detect_stack");
+    expect(instructions).toContain("list_contributions");
   });
 
   it("tells the model to skip discovery when the question already names a repository", () => {
@@ -26,6 +27,12 @@ describe("buildInstructions", () => {
 
   it("tells the model its turn budget, so it batches tool calls instead of spending turns", () => {
     expect(buildInstructions("octocat")).toContain(`at most ${MAX_AGENT_STEPS} turns`);
+  });
+
+  it("tells the model a contribution it cannot list may be private, not absent", () => {
+    // Observed: asked about pull requests to a company's private repos, the honest
+    // answer is "not visible from public data", never "there are none".
+    expect(buildInstructions("octocat")).toMatch(/private repositor/i);
   });
 
   it("tells the model to admit when it does not know", () => {
