@@ -2,8 +2,10 @@
 
 /*
  * Editorial engineering-notebook palette: warm paper, ink, and one signal
- * colour for whatever the agent is doing right now. Text colours keep at least
- * 4.5:1 against the paper they sit on, in both schemes.
+ * colour for whatever the agent is doing right now. The signal is the accent of
+ * the owner's portfolio, #00ff41: used as-is on the dark scheme (13.6:1), and
+ * as a deeper shade of the same 135° hue on paper, where #00ff41 itself would
+ * be 1.4:1. Text colours keep at least 4.5:1 against their paper in both schemes.
  */
 :root {
   color-scheme: light;
@@ -14,10 +16,10 @@
   --ink-faint: #7d7668;
   --rule: #d8d0bf;
   --rule-strong: #1b1a17;
-  --signal: #c2410c;
-  --signal-ink: #a8380a;
+  --signal: #007a1f;
+  --signal-ink: #006e1c;
   --on-signal: #ffffff;
-  --ok: #2f7d4f;
+  --ok: #007a1f;
   --bad: #b42318;
 }
 
@@ -31,10 +33,10 @@
     --ink-faint: #8a8372;
     --rule: #35322a;
     --rule-strong: #ece6d8;
-    --signal: #ff7a3d;
-    --signal-ink: #ff9a66;
-    --on-signal: #13120f;
-    --ok: #5cc28a;
+    --signal: #00ff41;
+    --signal-ink: #00ff41;
+    --on-signal: #0a0a0a;
+    --ok: #00ff41;
     --bad: #f2705e;
   }
 }
