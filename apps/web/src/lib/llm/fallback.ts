@@ -61,6 +61,9 @@ export class AllModelsFailedError extends Error {
  * Rules:
  * - Only failures before the first output fail over. Once text or a tool call
  *   has streamed, a retry would duplicate it, so a later error passes through.
+ *   Reasoning is held back until then: Groq checks a tool call against the
+ *   tool's schema only after the model has reasoned, and a mismatch must still
+ *   fail over instead of ending the answer.
  * - The caller's abort (the Stop button) is never treated as a model failure.
  * - The model that last succeeded serves the next calls, so a failing model is
  *   not paid for again on every step of the same answer. Create one wrapper
@@ -111,11 +114,24 @@ export function createFallbackModel(
   };
 }
 
+/** Parts that come before a model's output: holding them back keeps a failure after them retryable. */
+const BEFORE_OUTPUT = new Set<StreamPart["type"]>([
+  "stream-start",
+  "response-metadata",
+  "reasoning-start",
+  "reasoning-delta",
+  "reasoning-end",
+]);
+
 /**
- * Starts a stream and waits for its first part that carries the model's
- * answer, so a failure or a stall surfaces here, while it can still fail over.
- * `stream-start` does not count: it only reports warnings and arrives as soon
- * as the response opens, before the model has produced anything.
+ * Starts a stream and waits for its first output part (text, a tool call or
+ * the finish: anything not in BEFORE_OUTPUT), so a failure or a stall
+ * surfaces here, while it can still fail over.
+ *
+ * The timeout only covers the wait for the model's first part of any kind
+ * but `stream-start`, which arrives as soon as the response opens, before the
+ * model has produced anything. A model that has started reasoning is alive,
+ * so it gets the time it needs.
  */
 async function streamFirstChunk(
   model: LanguageModelV4,
@@ -132,18 +148,21 @@ async function streamFirstChunk(
     reader = result.stream.getReader();
 
     const head: StreamPart[] = [];
+    let started = false;
     for (;;) {
       const { value, done } = await untilAborted(reader.read(), signal);
       if (done) break;
       if (value.type === "error") throw value.error;
-      if (value.type !== "stream-start") {
+      if (!started && value.type !== "stream-start") {
+        started = true;
+        clearTimeout(timer);
         // Name the model that served this step. A provider that omits its model id
         // (Gemini does) would otherwise leave the SDK reporting the wrapper's id - the
         // whole chain. A provider that does send one simply restates the same id later.
-        head.push({ type: "response-metadata", modelId: model.modelId }, value);
-        break;
+        head.push({ type: "response-metadata", modelId: model.modelId });
       }
       head.push(value);
+      if (!BEFORE_OUTPUT.has(value.type)) break;
     }
 
     return { ...result, stream: replay(head, reader) };
