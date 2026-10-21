@@ -10,6 +10,7 @@ describe("buildInstructions", () => {
     expect(instructions).toContain("list_repos");
     expect(instructions).toContain("get_readme");
     expect(instructions).toContain("detect_stack");
+    expect(instructions).toContain("list_contributions");
   });
 
   it("tells the model to skip discovery when the question already names a repository", () => {
@@ -26,6 +27,28 @@ describe("buildInstructions", () => {
 
   it("tells the model its turn budget, so it batches tool calls instead of spending turns", () => {
     expect(buildInstructions("octocat")).toContain(`at most ${MAX_AGENT_STEPS} turns`);
+  });
+
+  it("answers a question about an unlisted project with 'private, cannot be shown' and nothing else", () => {
+    // Observed: asked about pull requests to a company's private repos, the model
+    // opened with "there is no PR to that organization" and only then added the
+    // caveat, which reads as a denial. The owner's ask: say they are private and stop.
+    const instructions = buildInstructions("octocat");
+
+    expect(instructions).toMatch(/private repositories cannot be shown/i);
+    expect(instructions).toMatch(/do not say there are none/i);
+    expect(instructions).toMatch(/do not list other contributions instead/i);
+    // The filter is what lets the tool itself return that answer for the project.
+    expect(instructions).toMatch(/project set to/i);
+  });
+
+  it("answers about private work with GitHub's count only, never naming or guessing repositories", () => {
+    // The owner's ask: the data must come from GitHub, not from anything that reads
+    // as an answer the owner planted ("he says he worked on X").
+    const instructions = buildInstructions("octocat");
+
+    expect(instructions).toMatch(/privateContributions/);
+    expect(instructions).toMatch(/never name or guess the repositories/i);
   });
 
   it("tells the model to admit when it does not know", () => {

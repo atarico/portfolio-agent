@@ -1,6 +1,13 @@
 # Portfolio Agent
 
-A small, complete example of a **GenAI-powered fullstack app**: a chat UI, an **LLM agent** with a tool loop, and a **Model Context Protocol (MCP) server** that exposes a GitHub portfolio as tools. The agent answers questions like *"which projects use Supabase?"* by calling those tools on live GitHub data.
+A small, complete example of a **GenAI-powered fullstack app**: a chat UI, an **LLM agent** with a tool loop, and a **Model Context Protocol (MCP) server** that exposes a GitHub portfolio as tools. The agent answers questions like *"which projects use Supabase?"* or *"which open source projects has this person contributed to?"* by calling those tools on live GitHub data.
+
+| Tool | Answers |
+|---|---|
+| `list_repos` | Which projects exist: description, language, stars, topics |
+| `get_readme` | What a project does and how it is built |
+| `detect_stack` | Runtime, frameworks and libraries, following monorepo workspaces |
+| `list_contributions` | Pull requests opened in other people's and organizations' repositories, merged or not, approved or not, optionally narrowed to one project. Private work appears only as GitHub's own count (e.g. "741 contributions to private repositories in the last year"), which never says which repositories: the agent states that count and never names or guesses them |
 
 Everything runs on free tiers (Groq, Google AI Studio, public GitHub API, Vercel). The LLM is an ordered **fallback chain** set by one environment variable: when a free-tier model is overloaded, rate limited or slow, the same step moves to the next model instead of failing in front of the visitor.
 
@@ -18,7 +25,7 @@ sequenceDiagram
     C->>M: MCP initialize + tools/list (in-memory transport)
     loop up to MAX_AGENT_STEPS (the last step must answer)
         C->>C: first healthy model of the chain decides: answer or call a tool
-        C->>M: tools/call (list_repos | get_readme | detect_stack)
+        C->>M: tools/call (list_repos | get_readme | detect_stack | list_contributions)
         M->>G: fetch repos / README / manifest
         G-->>M: JSON / raw file
         M-->>C: tool result
@@ -151,7 +158,7 @@ packages/mcp-server/
   src/ports/github.ts          GitHubPort (hexagonal port)
   src/adapters/github-rest.ts  GitHub REST adapter
   src/adapters/caching-github.ts  caching decorator for any GitHubPort
-  src/tools/                   list_repos, get_readme, detect_stack
+  src/tools/                   list_repos, get_readme, detect_stack, list_contributions
   src/server.ts                McpServer factory + tool registration
   src/validation.ts            GitHub owner / repository name rules
   src/owner.ts                 resolveOwner(): the one place the owner comes from

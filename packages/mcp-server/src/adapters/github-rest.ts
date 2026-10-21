@@ -1,4 +1,4 @@
-import type { GitHubPort, RepoSummary } from "../ports/github.ts";
+import type { GitHubPort, PrivateContributionCount, PullRequestSummary, RepoSummary } from "../ports/github.ts";
 
 export interface GitHubRestAdapterOptions {
   /** Personal access token. Optional: unauthenticated calls are limited to 60 requests/hour. */
@@ -21,6 +21,42 @@ interface GitHubRepoPayload {
   fork: boolean;
   archived: boolean;
 }
+
+interface SearchIssuePayload {
+  number: number;
+  title: string;
+  html_url: string;
+  state: "open" | "closed";
+  created_at: string;
+  /** API URL of the repository, `.../repos/<owner>/<name>`. */
+  repository_url: string;
+  pull_request?: { merged_at: string | null };
+}
+
+interface ContributionsCollectionPayload {
+  data?: {
+    user: {
+      contributionsCollection: {
+        startedAt: string;
+        endedAt: string;
+        hasAnyRestrictedContributions: boolean;
+        restrictedContributionsCount: number;
+      };
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+}
+
+const PRIVATE_CONTRIBUTIONS_QUERY = `query ($login: String!) {
+  user(login: $login) {
+    contributionsCollection {
+      startedAt
+      endedAt
+      hasAnyRestrictedContributions
+      restrictedContributionsCount
+    }
+  }
+}`;
 
 const JSON_MEDIA_TYPE = "application/vnd.github+json";
 const RAW_MEDIA_TYPE = "application/vnd.github.raw+json";
@@ -77,6 +113,80 @@ export class GitHubRestAdapter implements GitHubPort {
     return (payload.tree ?? []).filter((entry) => entry.type === "blob").map((entry) => entry.path);
   }
 
+  /**
+   * Two searches, run in parallel: every pull request `author` opened outside
+   * the repositories it owns (`-user:` excludes those), and the subset a
+   * reviewer approved, which the first search does not report. Both are
+   * public-only with a token that has no scopes, which is what this server uses.
+   */
+  async listExternalPullRequests(author: string): Promise<PullRequestSummary[]> {
+    const query = `is:pr author:${author} -user:${author}`;
+    const search = `${this.baseUrl}/search/issues`;
+    const [all, approved] = await Promise.all([
+      this.searchIssues(`${search}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100`),
+      this.searchIssues(`${search}?q=${encodeURIComponent(`${query} review:approved`)}&per_page=100`),
+    ]);
+
+    const approvedUrls = new Set(approved.map((item) => item.html_url));
+    return all.map((item) => ({
+      repo: new URL(item.repository_url).pathname.split("/").slice(-2).join("/"),
+      number: item.number,
+      title: item.title,
+      url: item.html_url,
+      state: item.pull_request?.merged_at ? "merged" : item.state,
+      approved: approvedUrls.has(item.html_url),
+      createdAt: item.created_at,
+    }));
+  }
+
+  /**
+   * GitHub shares this count publicly when the owner enables "private
+   * contributions" on their profile, so a token with no scopes can read it - but
+   * only over GraphQL, which refuses unauthenticated calls: without a token
+   * there is nothing to ask. The login travels as a variable, never spliced into
+   * the query text.
+   */
+  async getPrivateContributionCount(owner: string): Promise<PrivateContributionCount | null> {
+    if (!this.token) return null;
+
+    const url = `${this.baseUrl}/graphql`;
+    const response = await this.fetchImpl(url, {
+      method: "POST",
+      headers: {
+        Accept: JSON_MEDIA_TYPE,
+        "Content-Type": "application/json",
+        "User-Agent": "portfolio-agent",
+        Authorization: `Bearer ${this.token}`,
+      },
+      body: JSON.stringify({ query: PRIVATE_CONTRIBUTIONS_QUERY, variables: { login: owner } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    await this.assertOk(response, url);
+
+    const payload = (await response.json()) as ContributionsCollectionPayload;
+    if (payload.errors?.length) {
+      throw new Error(`GitHub GraphQL error: ${payload.errors.map((error) => error.message).join("; ")}`);
+    }
+    const collection = payload.data?.user?.contributionsCollection;
+    if (!collection?.hasAnyRestrictedContributions || collection.restrictedContributionsCount === 0) return null;
+
+    // The period starts at midnight in the owner's time zone, so its UTC time of
+    // day is that zone's offset; shifting both ends by it gives the local days.
+    const offset = midnightOffsetMs(collection.startedAt);
+    return {
+      count: collection.restrictedContributionsCount,
+      from: localDay(collection.startedAt, offset),
+      to: localDay(collection.endedAt, offset),
+    };
+  }
+
+  private async searchIssues(url: string): Promise<SearchIssuePayload[]> {
+    const response = await this.request(url, JSON_MEDIA_TYPE);
+    await this.assertOk(response, url);
+    const payload = (await response.json()) as { items?: SearchIssuePayload[] };
+    return payload.items ?? [];
+  }
+
   private async rawOrNull(url: string): Promise<string | null> {
     const response = await this.request(url, RAW_MEDIA_TYPE);
     if (response.status === 404) return null;
@@ -124,6 +234,18 @@ function encodeRepoPath(path: string): string {
     throw new Error(`Invalid repository file path: "${path}".`);
   }
   return segments.map(encodeURIComponent).join("/");
+}
+
+const DAY_MS = 86_400_000;
+
+/** How far local midnight sits from UTC midnight, in (-12 h, +12 h]: 03:00Z gives +3 h (UTC-3). */
+function midnightOffsetMs(localMidnight: string): number {
+  const timeOfDay = ((Date.parse(localMidnight) % DAY_MS) + DAY_MS) % DAY_MS;
+  return timeOfDay > DAY_MS / 2 ? timeOfDay - DAY_MS : timeOfDay;
+}
+
+function localDay(instant: string, offsetMs: number): string {
+  return new Date(Date.parse(instant) - offsetMs).toISOString().slice(0, 10);
 }
 
 function toRepoSummary(repo: GitHubRepoPayload): RepoSummary {

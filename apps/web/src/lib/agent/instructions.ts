@@ -30,6 +30,8 @@ export function buildInstructions(owner: string): string {
     "- list_repos: discover which repositories exist, with each one's description, language, stars and topics.",
     "- get_readme: read what a specific project does and how it is built.",
     "- detect_stack: get the runtime, frameworks and notable libraries of a repository.",
+    "- list_contributions: pull requests they opened in other people's and organizations' repositories",
+    "  (collaborations, open source work), with whether each was merged. Public pull requests only.",
     "",
     "Spending tool calls well:",
     `- You have at most ${MAX_AGENT_STEPS} turns per question, and the last one cannot call tools.`,
@@ -43,6 +45,13 @@ export function buildInstructions(owner: string): string {
     "Rules:",
     "- Ground every claim in tool results. Cite repository names explicitly.",
     "- If the tools do not contain the answer, say that you do not know instead of guessing.",
+    "- When asked about contributions to a specific project or organization, call list_contributions",
+    "  with project set to its name. It only sees public pull requests: if nothing matches, reply only",
+    "  that contributions to private repositories cannot be shown.",
+    "  Do not say there are none, and do not list other contributions instead.",
+    "- For questions about private work, use privateContributions from list_contributions:",
+    "  say GitHub counts that many contributions to private repositories in that period, and that it",
+    "  does not say which ones. Never name or guess the repositories.",
     "- Answer in the language of the question. Keep answers concise and use short lists.",
   ].join("\n");
 }

@@ -179,3 +179,129 @@ describe("GitHubRestAdapter.listFiles", () => {
     await expect(adapter.listFiles("octocat", "hello")).rejects.toThrow(/500.*boom/);
   });
 });
+
+describe("GitHubRestAdapter.listExternalPullRequests", () => {
+  it("lists pull requests the author opened outside their own repositories, with merge and approval state", async () => {
+    const query = "is:pr author:octocat -user:octocat";
+    const base = "https://api.github.com/search/issues";
+    const item = (repo: string, number: number, state: string, mergedAt: string | null) => ({
+      number,
+      title: `PR ${number}`,
+      html_url: `https://github.com/${repo}/pull/${number}`,
+      state,
+      created_at: "2026-03-01T00:00:00Z",
+      repository_url: `https://api.github.com/repos/${repo}`,
+      pull_request: { merged_at: mergedAt },
+    });
+    const { fetchImpl, requests } = fakeFetch({
+      [`${base}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100`]: () =>
+        json({
+          items: [
+            item("acme/cli", 40, "open", null),
+            item("friend/app", 7, "closed", "2026-03-02T00:00:00Z"),
+            item("acme/cli", 9, "closed", null),
+          ],
+        }),
+      [`${base}?q=${encodeURIComponent(`${query} review:approved`)}&per_page=100`]: () =>
+        json({ items: [item("friend/app", 7, "closed", "2026-03-02T00:00:00Z")] }),
+    });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    const prs = await adapter.listExternalPullRequests("octocat");
+
+    expect(prs.map(({ repo, number, state, approved }) => ({ repo, number, state, approved }))).toEqual([
+      { repo: "acme/cli", number: 40, state: "open", approved: false },
+      { repo: "friend/app", number: 7, state: "merged", approved: true },
+      { repo: "acme/cli", number: 9, state: "closed", approved: false },
+    ]);
+    expect(prs[1]).toMatchObject({ title: "PR 7", url: "https://github.com/friend/app/pull/7", createdAt: "2026-03-01T00:00:00Z" });
+    expect(requests).toHaveLength(2);
+  });
+
+  it("fails loudly when the search API refuses, instead of reporting no contributions", async () => {
+    const { fetchImpl } = fakeFetch({});
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    await expect(adapter.listExternalPullRequests("octocat")).rejects.toThrow(/GitHub API 404/);
+  });
+});
+
+describe("GitHubRestAdapter.getPrivateContributionCount", () => {
+  function graphqlFetch(body: unknown, status = 200) {
+    const requests: Array<{ url: string; method: string | undefined; body: string; authorization: string | null }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requests.push({
+        url: String(input),
+        method: init?.method,
+        body: String(init?.body),
+        authorization: new Headers(init?.headers).get("authorization"),
+      });
+      return json(body, status);
+    };
+    return { fetchImpl, requests };
+  }
+
+  const collection = (shared: boolean, count: number) => ({
+    data: {
+      user: {
+        contributionsCollection: {
+          startedAt: "2025-10-19T03:00:00Z",
+          endedAt: "2026-10-22T02:59:59Z",
+          hasAnyRestrictedContributions: shared,
+          restrictedContributionsCount: count,
+        },
+      },
+    },
+  });
+
+  it("reads the private contribution count over GraphQL, passing the login as a variable", async () => {
+    const { fetchImpl, requests } = graphqlFetch(collection(true, 741));
+    const adapter = new GitHubRestAdapter({ token: "t", fetch: fetchImpl });
+
+    // GitHub counts in the owner's time zone: 03:00Z is midnight in UTC-3, so the
+    // period ends on the 21st locally even though endedAt falls on the 22nd in UTC.
+    await expect(adapter.getPrivateContributionCount("octocat")).resolves.toEqual({
+      count: 741,
+      from: "2025-10-19",
+      to: "2026-10-21",
+    });
+    expect(requests[0]).toMatchObject({ url: "https://api.github.com/graphql", method: "POST", authorization: "Bearer t" });
+    expect(JSON.parse(requests[0]!.body).variables).toEqual({ login: "octocat" });
+  });
+
+  it("reads the period's days in the owner's time zone east of UTC too", async () => {
+    // Midnight in UTC+2 is 22:00Z of the previous day.
+    const body = collection(true, 5);
+    body.data.user.contributionsCollection.startedAt = "2025-10-18T22:00:00Z";
+    body.data.user.contributionsCollection.endedAt = "2026-10-21T21:59:59Z";
+    const { fetchImpl } = graphqlFetch(body);
+    const adapter = new GitHubRestAdapter({ token: "t", fetch: fetchImpl });
+
+    await expect(adapter.getPrivateContributionCount("octocat")).resolves.toMatchObject({
+      from: "2025-10-19",
+      to: "2026-10-21",
+    });
+  });
+
+  it("returns null when the owner does not share private contributions", async () => {
+    const { fetchImpl } = graphqlFetch(collection(false, 0));
+    const adapter = new GitHubRestAdapter({ token: "t", fetch: fetchImpl });
+
+    await expect(adapter.getPrivateContributionCount("octocat")).resolves.toBeNull();
+  });
+
+  it("returns null without a request when there is no token, since GraphQL requires one", async () => {
+    const { fetchImpl, requests } = graphqlFetch(collection(true, 741));
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    await expect(adapter.getPrivateContributionCount("octocat")).resolves.toBeNull();
+    expect(requests).toHaveLength(0);
+  });
+
+  it("throws on a GraphQL error instead of reporting zero", async () => {
+    const { fetchImpl } = graphqlFetch({ errors: [{ message: "Could not resolve to a User" }] });
+    const adapter = new GitHubRestAdapter({ token: "t", fetch: fetchImpl });
+
+    await expect(adapter.getPrivateContributionCount("octocat")).rejects.toThrow(/Could not resolve/);
+  });
+});
