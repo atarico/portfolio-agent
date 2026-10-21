@@ -8,6 +8,7 @@ import { createRateLimiter, type RateLimitDecision, type RateLimiter } from "@/l
 vi.mock("ai", () => ({
   convertToModelMessages: vi.fn(async (messages: unknown) => messages),
   isStepCount: vi.fn(() => "mock-stop-condition"),
+  pruneMessages: vi.fn(({ messages }: { messages: unknown[] }) => [...messages, "pruned"]),
   streamText: vi.fn(() => ({ stream: (async function* () {})() })),
   toUIMessageStream: vi.fn(({ stream }: { stream: unknown }) => stream),
   createUIMessageStreamResponse: vi.fn(() => new Response(null, { status: 200 })),
@@ -21,10 +22,10 @@ vi.mock("@/lib/mcp/client", () => ({
 }));
 
 vi.mock("@/lib/llm/provider", () => ({
-  resolveModel: vi.fn(() => ({ provider: "google", modelId: "mock-model", model: {} })),
+  resolveModel: vi.fn(() => ({ chain: [{ provider: "google", modelId: "mock-model" }], model: {} })),
 }));
 
-import { isStepCount, streamText } from "ai";
+import { isStepCount, pruneMessages, streamText, toUIMessageStream } from "ai";
 
 import { MAX_AGENT_STEPS } from "@/lib/agent/instructions";
 import { ERROR_MESSAGES } from "@/lib/http/errors";
@@ -159,6 +160,69 @@ describe("createChatRouteHandler", () => {
 
     const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ maxRetries?: number }];
     expect(options.maxRetries).toBe(0);
+  });
+
+  it("resolves the model chain from the injected env and logs every fallback", async () => {
+    const logged = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const env = { LLM_PROVIDER: "groq,google" };
+    const handler = createChatRouteHandler({ env, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [passedEnv, fallback] = vi.mocked(resolveModel).mock.calls.at(-1) as [
+      unknown,
+      { onFallback: (failure: { model: string; error: unknown }, next: string) => void },
+    ];
+    expect(passedEnv).toBe(env);
+    fallback.onFallback({ model: "openai/gpt-oss-120b", error: new Error("429 TPM") }, "gemini-3.6-flash");
+    expect(String(logged.mock.calls[0]?.[0])).toMatch(/openai\/gpt-oss-120b.*429 TPM.*gemini-3\.6-flash/);
+  });
+
+  it("forces a text answer on the last step instead of letting the budget run out on tool calls", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [
+      { prepareStep?: (event: { stepNumber: number }) => unknown },
+    ];
+    expect(options.prepareStep?.({ stepNumber: MAX_AGENT_STEPS - 1 })).toEqual({ toolChoice: "none" });
+    expect(options.prepareStep?.({ stepNumber: 0 })).toBeUndefined();
+  });
+
+  it("asks every provider for low reasoning effort, which is what keeps tool steps fast", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ reasoning?: string }];
+    expect(options.reasoning).toBe("low");
+  });
+
+  it("strips tool calls and reasoning from the replayed history before the model sees it", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    expect(pruneMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ reasoning: "before-last-message", toolCalls: "before-last-message" }),
+    );
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ messages?: unknown[] }];
+    expect(options.messages).toBe(vi.mocked(pruneMessages).mock.results.at(-1)?.value);
+  });
+
+  it("tags the answer with the model that served it and how long it took", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(toUIMessageStream).mock.calls.at(-1) as unknown as [
+      { messageMetadata?: (event: { part: unknown }) => unknown },
+    ];
+    expect(options.messageMetadata?.({ part: { type: "finish-step", response: { modelId: "m" } } })).toEqual({
+      model: "m",
+    });
+    expect(options.messageMetadata?.({ part: { type: "finish" } })).toEqual({ durationMs: expect.any(Number) });
   });
 
   it("rejects a malformed body with 400 invalid_request and surfaces the reason outside production", async () => {

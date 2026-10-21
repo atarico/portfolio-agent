@@ -9,6 +9,18 @@
  */
 export const MAX_AGENT_STEPS = 6;
 
+/**
+ * Per-step settings for the agent loop: the last step may not call tools.
+ *
+ * Without this, a model that keeps calling tools one at a time spends the whole
+ * budget and the visitor sees tool badges and no answer (observed 2026-10-21 on
+ * "Which repositories use Next.js?"). Forcing text on the last step turns that
+ * into an answer built from whatever the earlier steps gathered.
+ */
+export function stepSettings(stepNumber: number): { toolChoice: "none" } | undefined {
+  return stepNumber >= MAX_AGENT_STEPS - 1 ? { toolChoice: "none" } : undefined;
+}
+
 export function buildInstructions(owner: string): string {
   return [
     `You are the portfolio assistant for the GitHub user "${owner}".`,
@@ -20,6 +32,7 @@ export function buildInstructions(owner: string): string {
     "- detect_stack: get the runtime, frameworks and notable libraries of a repository.",
     "",
     "Spending tool calls well:",
+    `- You have at most ${MAX_AGENT_STEPS} turns per question, and the last one cannot call tools.`,
     "- Every turn you take costs the same whether you request one tool or several, so when you",
     "  need several independent facts, request those tools together in the same turn.",
     "- Only call list_repos to discover repositories. If the question already names a repository,",

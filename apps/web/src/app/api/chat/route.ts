@@ -3,11 +3,13 @@ import {
   convertToModelMessages,
   createUIMessageStreamResponse,
   isStepCount,
+  pruneMessages,
   streamText,
   toUIMessageStream,
 } from "ai";
 
-import { MAX_AGENT_STEPS, buildInstructions } from "@/lib/agent/instructions";
+import { MAX_AGENT_STEPS, buildInstructions, stepSettings } from "@/lib/agent/instructions";
+import { answerMetadata } from "@/lib/chat/metadata";
 import { PUBLIC_ROUTE_BUDGET, createRateLimiter, type RateLimiter } from "@/lib/chat/rate-limit";
 import { parseChatRequest } from "@/lib/chat/request";
 import type { Env } from "@/lib/http/env";
@@ -33,7 +35,8 @@ export interface ChatRouteDeps {
  *
  * Agent loop: the model decides which MCP tools to call, the AI SDK executes
  * them through the MCP client and feeds results back, until the model
- * answers or the step budget is spent.
+ * answers or the step budget is spent. Each step goes to the first healthy
+ * model of the `LLM_PROVIDER` chain (see `resolveModel`).
  */
 export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Request) => Promise<Response> {
   const env = deps.env ?? process.env;
@@ -53,7 +56,12 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
     let resolved: ReturnType<typeof resolveModel>;
     let owner: string;
     try {
-      resolved = resolveModel();
+      // One resolution per request: the fallback wrapper remembers which model last
+      // answered, and that memory must not leak into another visitor's request.
+      resolved = resolveModel(env, {
+        onFallback: ({ model, error }, next) =>
+          console.warn(`[chat] ${model} failed (${messageOf(error)}); falling back to ${next}.`),
+      });
       owner = resolveOwner(env);
     } catch (error) {
       console.error("[chat] configuration error:", error);
@@ -73,23 +81,33 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
     try {
       const tools = await connection.tools();
 
+      const startedAt = Date.now();
       const result = streamText({
         model: resolved.model,
         instructions: buildInstructions(owner),
-        // Trust boundary: `parsed.messages` is client-authored history. The client controls
-        // the whole conversation it sends back, including assistant turns and tool-call
-        // results (a caller can fabricate a "tool result" that the server never produced),
-        // and `convertToModelMessages` replays all of it into the model context unverified.
-        // This is acceptable only because the MCP tools reached from this context are
-        // read-only and pinned to the server-configured `owner` above (see `resolveOwner`):
-        // a fabricated tool result can mislead the model about what a tool returned, but it
-        // cannot widen what the model is allowed to call or redirect a call to another
-        // owner's data. If any tool ever becomes write-capable or accepts a caller-supplied
-        // target (owner, repo, path, ...) instead of a server-pinned one, this trust boundary
-        // must be revisited (e.g. with server-side session state or signed history).
-        messages: await convertToModelMessages(parsed.messages),
+        // Trust boundary: `parsed.messages` is client-authored history, and
+        // `convertToModelMessages` replays it unverified. Pruning narrows what that
+        // history can carry into the model: every tool call, tool result and
+        // reasoning part before the latest user message is dropped, so a "tool
+        // result" fabricated by the client never reaches the model - only the
+        // conversation's text does. A forged assistant *answer* still can, which is
+        // acceptable only because the MCP tools reached from here are read-only and
+        // pinned to the server-configured `owner` (see `resolveOwner`): forged text can
+        // mislead the model, but it cannot widen what it may call or redirect a call
+        // to another owner's data. If a tool ever becomes write-capable or accepts a
+        // caller-supplied target, revisit this (server-side sessions or signed history).
+        //
+        // It is also the main token saving on long conversations: earlier answers
+        // already summarize their tool results, and replaying those raw payloads on
+        // every turn would spend the free tier's per-minute token budget on them.
+        messages: pruneMessages({
+          messages: await convertToModelMessages(parsed.messages),
+          reasoning: "before-last-message",
+          toolCalls: "before-last-message",
+        }),
         tools,
         stopWhen: isStepCount(MAX_AGENT_STEPS),
+        prepareStep: ({ stepNumber }) => stepSettings(stepNumber),
         // No retries. The SDK's default is 2, and its backoff only honours a
         // Retry-After *header*; the free tiers this runs on report their wait in
         // the error body instead, so the retries fire at 2s and 4s against a
@@ -97,9 +115,14 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
         // another request from a per-minute budget of 20 - turning one failed
         // answer into three. Failing once, immediately, with a message the user
         // can act on beats stalling six seconds to fail anyway at triple cost.
-        // The trade is losing automatic recovery from a transient 5xx; a person
-        // watching a chat can press enter again, and that costs one unit.
+        // Recovery from a failing model is the fallback chain's job instead: it
+        // moves the step to the next model at once rather than retrying a model
+        // that just said it is out of quota (see `createFallbackModel`).
         maxRetries: 0,
+        // Deciding which tool to call does not need long deliberation, and reasoning
+        // tokens are latency the visitor waits through on every step. Each provider
+        // maps this to its own knob (Gemini thinkingLevel, Groq reasoning_effort).
+        reasoning: "low",
         // Propagates the client's Stop button (and any client-side disconnect) to the
         // agent loop and the LLM stream, instead of letting server-side work (further
         // MCP/GitHub calls, further generation) run to completion or maxDuration on a
@@ -128,6 +151,7 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
       return createUIMessageStreamResponse({
         stream: toUIMessageStream({
           stream: result.stream,
+          messageMetadata: ({ part }) => answerMetadata(part, startedAt),
           onError: (error) => clientErrorMessage(error, env),
         }),
       });

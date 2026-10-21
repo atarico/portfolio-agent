@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_AGENT_STEPS, buildInstructions } from "./instructions";
+import { MAX_AGENT_STEPS, buildInstructions, stepSettings } from "./instructions";
 
 describe("buildInstructions", () => {
   it("names the portfolio owner and the available tools", () => {
@@ -24,6 +24,10 @@ describe("buildInstructions", () => {
     expect(buildInstructions("octocat")).toMatch(/same turn|at once|together/i);
   });
 
+  it("tells the model its turn budget, so it batches tool calls instead of spending turns", () => {
+    expect(buildInstructions("octocat")).toContain(`at most ${MAX_AGENT_STEPS} turns`);
+  });
+
   it("tells the model to admit when it does not know", () => {
     expect(buildInstructions("octocat")).toMatch(/do not know|don't know|not sure/i);
   });
@@ -33,5 +37,15 @@ describe("MAX_AGENT_STEPS", () => {
   it("keeps one question within a free-tier friendly budget", () => {
     expect(MAX_AGENT_STEPS).toBeGreaterThanOrEqual(3);
     expect(MAX_AGENT_STEPS).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("stepSettings", () => {
+  it("forbids tool calls on the last step only, so every question ends with an answer", () => {
+    // Observed: asked "Which repositories use Next.js?", the model called
+    // detect_stack one repository per turn, spent all the steps and never answered.
+    expect(stepSettings(MAX_AGENT_STEPS - 1)).toEqual({ toolChoice: "none" });
+    expect(stepSettings(MAX_AGENT_STEPS - 2)).toBeUndefined();
+    expect(stepSettings(0)).toBeUndefined();
   });
 });
