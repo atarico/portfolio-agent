@@ -34,6 +34,17 @@ export interface PullRequestSummary {
   createdAt: string;
 }
 
+/**
+ * GitHub's own count of an owner's contributions to private repositories, as
+ * shown on their public profile. It says how many, never which repositories.
+ */
+export interface PrivateContributionCount {
+  count: number;
+  /** First and last day of the counted period (GitHub's default: the last year), `YYYY-MM-DD`. */
+  from: string;
+  to: string;
+}
+
 export interface GitHubPort {
   /** Public repositories owned by `owner`, forks included. */
   listRepos(owner: string): Promise<RepoSummary[]>;
@@ -46,6 +57,8 @@ export interface GitHubPort {
    * open source projects, organizations, teammates' repos - newest activity first.
    */
   listExternalPullRequests(author: string): Promise<PullRequestSummary[]>;
+  /** `null` when the owner does not share private contribution counts on their profile. */
+  getPrivateContributionCount(owner: string): Promise<PrivateContributionCount | null>;
   /** Every file (blob) path at the default branch HEAD; `[]` when the repository is empty or not found. */
   listFiles(owner: string, repo: string): Promise<string[]>;
 }

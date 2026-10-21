@@ -49,6 +49,9 @@ export function buildInstructions(owner: string): string {
     "  with project set to its name. It only sees public pull requests: if nothing matches, reply only",
     "  that contributions to private repositories cannot be shown.",
     "  Do not say there are none, and do not list other contributions instead.",
+    "- For questions about private work, use privateContributions from list_contributions:",
+    "  say GitHub counts that many contributions to private repositories in that period, and that it",
+    "  does not say which ones. Never name or guess the repositories.",
     "- Answer in the language of the question. Keep answers concise and use short lists.",
   ].join("\n");
 }

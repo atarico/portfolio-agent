@@ -1,4 +1,4 @@
-import type { GitHubPort, PullRequestState } from "../ports/github.ts";
+import type { GitHubPort, PrivateContributionCount, PullRequestState } from "../ports/github.ts";
 import { ToolInputError } from "../validation.ts";
 
 export interface ListContributionsInput {
@@ -43,6 +43,8 @@ export type ListContributionsResult = {
    * number instead of counted by the model, which it was observed to get wrong.
    */
   repositories: RepositoryContributions[];
+  /** GitHub's count of contributions to private repositories, when the owner shares it. */
+  privateContributions?: PrivateContributionCount;
   note: string;
 };
 
@@ -56,14 +58,20 @@ export const DEFAULT_CONTRIBUTION_LIMIT = 30;
 const PUBLIC_ONLY_NOTE =
   "Only public pull requests are visible. Contributions to private repositories do not appear here.";
 
+/** GitHub's private count, phrased so it can never be read as naming repositories. */
+const privateCountSentence = ({ count, from, to }: PrivateContributionCount) =>
+  `GitHub counts ${count} contributions to private repositories between ${from} and ${to}, ` +
+  "but does not say which repositories they belong to.";
+
 /**
  * For a named project with no public match, the result answers the question
  * itself: the owner wants "private, cannot be shown", and nothing in it may read
  * as evidence that no contribution exists.
  */
-const unmatchedProjectNote = (project: string) =>
+const unmatchedProjectNote = (project: string, privateCount: PrivateContributionCount | null) =>
   `Contributions to private repositories cannot be shown, and any to "${project}" would be private. ` +
-  "Answer exactly that for this project.";
+  "Answer exactly that for this project." +
+  (privateCount ? ` ${privateCountSentence(privateCount)}` : "");
 
 /** An organization or repository name, optionally `owner/name`: what GitHub allows in either. */
 const PROJECT_PATTERN = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9._-]+)?$/;
@@ -82,9 +90,13 @@ export async function listContributions(
   }
   const filter = project === undefined ? undefined : normalizeProject(project);
 
-  const all = (await github.listExternalPullRequests(owner)).filter(
-    ({ repo }) => filter === undefined || repo.toLowerCase().includes(filter),
-  );
+  const [pullRequests, privateCount] = await Promise.all([
+    github.listExternalPullRequests(owner),
+    // An enrichment, not the answer: if GitHub cannot be asked for the private
+    // count, the public pull requests are still worth returning.
+    github.getPrivateContributionCount(owner).catch(() => null),
+  ]);
+  const all = pullRequests.filter(({ repo }) => filter === undefined || repo.toLowerCase().includes(filter));
 
   const repositories: RepositoryContributions[] = [];
   for (const { repo, ...pullRequest } of all.slice(0, limit)) {
@@ -103,7 +115,13 @@ export async function listContributions(
     total: all.length,
     merged: all.filter((pullRequest) => pullRequest.state === "merged").length,
     repositories,
-    note: filter !== undefined && all.length === 0 ? unmatchedProjectNote(filter) : PUBLIC_ONLY_NOTE,
+    ...(privateCount ? { privateContributions: privateCount } : {}),
+    note:
+      filter !== undefined && all.length === 0
+        ? unmatchedProjectNote(filter, privateCount)
+        : privateCount
+          ? `${PUBLIC_ONLY_NOTE} ${privateCountSentence(privateCount)}`
+          : PUBLIC_ONLY_NOTE,
   };
 }
 

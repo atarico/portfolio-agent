@@ -65,7 +65,8 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 ### Contributions come from the search API, public only
 
 - **Why:** a portfolio is also what someone built with others. `list_contributions` runs two searches: every pull request the owner opened outside its own repositories (`is:pr author:<owner> -user:<owner>`), and the approved subset (`review:approved`), which the first search does not report.
-- **Cost:** with a scope-less token, private repositories (a company's, a client's) are invisible. The result carries that note and the instructions forbid presenting "not listed" as "never happened". A token with `repo` scope would show them, but `/api/mcp` would then serve private data to any caller, so it is not used. The search API allows 30 requests per minute, so results go through the same 10-minute cache.
+- **Private work:** GitHub publishes an anonymous count of private contributions when the owner enables it on their profile. `getPrivateContributionCount` reads it over GraphQL (any token, the login passed as a variable), and the agent reports it as "N contributions to private repositories in the last year, GitHub does not say which". Nothing about private work comes from the owner's own declarations: every figure is GitHub's.
+- **Cost:** with a scope-less token, private repositories (a company's, a client's) cannot be named. For a named project with no public match, the tool's note is the answer: contributions to private repositories cannot be shown. A token with `repo` scope would name them, but `/api/mcp` would then serve private files to any caller, so it is not used. The search API allows 30 requests per minute, so results go through the same 10-minute cache.
 
 ### Server-pinned owner and a trust boundary on history
 

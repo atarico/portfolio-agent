@@ -134,6 +134,9 @@ describe("tool failure logging", () => {
       listExternalPullRequests: async () => {
         throw upstreamError;
       },
+      getPrivateContributionCount: async () => {
+        throw upstreamError;
+      },
     };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 

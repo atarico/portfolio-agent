@@ -41,6 +41,9 @@ const fakeGitHub: GitHubPort = {
   async listExternalPullRequests() {
     return [];
   },
+  async getPrivateContributionCount() {
+    return null;
+  },
 };
 
 describe("connectPortfolioMcp (in-process)", () => {

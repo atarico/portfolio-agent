@@ -16,6 +16,7 @@ const pr = (overrides: Partial<PullRequestSummary> & { repo: string; number: num
 
 // Newest activity first, the order the port promises.
 const github = new FakeGitHub({
+  privateContributions: { octocat: { count: 741, from: "2025-10-19", to: "2026-10-22" } },
   pullRequests: {
     octocat: [
       pr({ repo: "acme/cli", number: 40, state: "open" }),
@@ -101,5 +102,38 @@ describe("listContributions", () => {
 
   it("rejects a limit below 1", async () => {
     await expect(listContributions(github, { owner: "octocat", limit: 0 })).rejects.toBeInstanceOf(ToolInputError);
+  });
+
+  it("adds GitHub's own count of private contributions, which says how many but never which", async () => {
+    const result = await listContributions(github, { owner: "octocat" });
+
+    expect(result.privateContributions).toEqual({ count: 741, from: "2025-10-19", to: "2026-10-22" });
+    expect(result.note).toMatch(/741 contributions to private repositories/);
+    expect(result.note).toMatch(/does not say which/i);
+  });
+
+  it("leaves the count out when GitHub does not share it", async () => {
+    const result = await listContributions(new FakeGitHub(), { owner: "octocat" });
+
+    expect(result.privateContributions).toBeUndefined();
+  });
+
+  it("still lists public pull requests when the private count cannot be fetched", async () => {
+    const failing = new FakeGitHub({ pullRequests: { octocat: [pr({ repo: "acme/cli", number: 1 })] } });
+    failing.getPrivateContributionCount = async () => {
+      throw new Error("GraphQL down");
+    };
+
+    const result = await listContributions(failing, { owner: "octocat" });
+
+    expect(result.total).toBe(1);
+    expect(result.privateContributions).toBeUndefined();
+  });
+
+  it("mentions the private count for an unmatched project too, without tying it to that project", async () => {
+    const result = await listContributions(github, { owner: "octocat", project: "kreva" });
+
+    expect(result.note).toMatch(/private repositories cannot be shown/i);
+    expect(result.note).toMatch(/741/);
   });
 });

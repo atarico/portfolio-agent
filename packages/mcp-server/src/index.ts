@@ -4,7 +4,13 @@ export {
 } from "./adapters/caching-github.ts";
 export { GitHubRestAdapter, type GitHubRestAdapterOptions } from "./adapters/github-rest.ts";
 export { DEFAULT_OWNER, resolveOwner } from "./owner.ts";
-export type { GitHubPort, PullRequestState, PullRequestSummary, RepoSummary } from "./ports/github.ts";
+export type {
+  GitHubPort,
+  PrivateContributionCount,
+  PullRequestState,
+  PullRequestSummary,
+  RepoSummary,
+} from "./ports/github.ts";
 export {
   SERVER_NAME,
   SERVER_VERSION,

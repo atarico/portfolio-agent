@@ -42,6 +42,15 @@ describe("buildInstructions", () => {
     expect(instructions).toMatch(/project set to/i);
   });
 
+  it("answers about private work with GitHub's count only, never naming or guessing repositories", () => {
+    // The owner's ask: the data must come from GitHub, not from anything that reads
+    // as an answer the owner planted ("he says he worked on X").
+    const instructions = buildInstructions("octocat");
+
+    expect(instructions).toMatch(/privateContributions/);
+    expect(instructions).toMatch(/never name or guess the repositories/i);
+  });
+
   it("tells the model to admit when it does not know", () => {
     expect(buildInstructions("octocat")).toMatch(/do not know|don't know|not sure/i);
   });
