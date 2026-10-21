@@ -11,6 +11,7 @@ describe("buildInstructions", () => {
     expect(instructions).toContain("get_readme");
     expect(instructions).toContain("detect_stack");
     expect(instructions).toContain("list_contributions");
+    expect(instructions).toContain("get_profile");
   });
 
   it("tells the model to skip discovery when the question already names a repository", () => {
@@ -49,6 +50,26 @@ describe("buildInstructions", () => {
 
     expect(instructions).toMatch(/privateContributions/);
     expect(instructions).toMatch(/never name or guess the repositories/i);
+  });
+
+  it("attributes CV and portfolio facts to their source instead of stating them as verified", () => {
+    // The owner's ask: answers must come from GitHub or the CV, and read that way.
+    expect(buildInstructions("octocat")).toMatch(/according to their CV/i);
+  });
+
+  it("trusts the GitHub tools over the CV for a repository's current state", () => {
+    // The CV says Portfolio Agent has 137 tests; the repository has 220 by now.
+    expect(buildInstructions("octocat")).toMatch(/GitHub tools win over the CV/i);
+  });
+
+  it("answers career questions from get_profile alone, without listing repositories", () => {
+    expect(buildInstructions("octocat")).toMatch(/get_profile only/i);
+  });
+
+  it("reads skills and projects for a technology question, where the CV says it was used", () => {
+    // Observed: asked "Does he have experience with AWS?", the model read only the
+    // experience section and guessed where AWS was used; the AWS projects were in projects.
+    expect(buildInstructions("octocat")).toMatch(/technology, ask for skills and projects in one call/i);
   });
 
   it("tells the model to admit when it does not know", () => {

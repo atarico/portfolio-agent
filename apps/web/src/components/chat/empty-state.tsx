@@ -11,16 +11,16 @@ const suggestionsFor = (owner: string) => [
   { tag: "stack", text: "What stack does the portfolio-agent repo use?" },
   { tag: "collaboration", text: `Which other people's projects has ${owner} contributed to?` },
   { tag: "search", text: "Which repositories use Next.js?" },
-  { tag: "en español", text: "¿Qué proyectos usan Supabase?" },
+  { tag: "cv, en español", text: `¿Qué experiencia laboral tiene ${owner}?` },
 ];
 
 const STEPS = [
   { title: "You ask", body: "in plain language, in English or Spanish." },
   {
     title: "The agent picks tools",
-    body: "list_repos, get_readme, detect_stack and list_contributions, served over MCP.",
+    body: "list_repos, get_readme, detect_stack, list_contributions and get_profile, served over MCP.",
   },
-  { title: "It answers from GitHub", body: "with live data, and shows every call it made." },
+  { title: "It answers from GitHub and the CV", body: "with live data, and shows every call it made." },
 ];
 
 const delay = (ms: number) => ({ "--rise-delay": `${ms}ms` }) as CSSProperties;

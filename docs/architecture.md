@@ -7,10 +7,10 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 1. **Browser.** `useChat` posts the whole conversation to `/api/chat` (a Next.js Route Handler).
 2. **Guards.** Rate limit per client, then body validation with zod: message count, part count, text length, and an aggregate 128 KiB budget (`lib/http/guards.ts`, `lib/chat/request.ts`).
 3. **Model.** `resolveModel(env)` turns `LLM_PROVIDER` into a fallback chain, built fresh for each request (`lib/llm/provider.ts`, `lib/llm/fallback.ts`).
-4. **Tools.** An MCP client connects to the MCP server **in-process** over an in-memory transport and lists its tools: `list_repos`, `get_readme`, `detect_stack`, `list_contributions` (`lib/mcp/client.ts`).
+4. **Tools.** An MCP client connects to the MCP server **in-process** over an in-memory transport and lists its tools: `list_repos`, `get_readme`, `detect_stack`, `list_contributions`, `get_profile` (`lib/mcp/client.ts`).
 5. **History.** The client history is converted to model messages and pruned: earlier tool payloads and reasoning are dropped, and only the conversation's text is kept.
 6. **Agent loop.** `streamText` runs up to 6 steps. In each step the model either answers or calls tools. The AI SDK executes those tools through MCP and feeds the results back. The last step may not call tools.
-7. **GitHub.** Tools reach GitHub through `GitHubPort`, implemented by a REST adapter behind a process-wide cache.
+7. **Data.** GitHub tools go through `GitHubPort`, implemented by a REST adapter behind a process-wide cache. `get_profile` reads a JSON file bundled with the server.
 8. **Response.** Text, tool calls and per-answer metadata (the serving model and the duration) stream back to the UI.
 
 ## Decisions
@@ -68,6 +68,14 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 - **Why:** a portfolio is also what someone built with others. `list_contributions` runs two searches: every pull request the owner opened outside its own repositories (`is:pr author:<owner> -user:<owner>`), and the approved subset (`review:approved`), which the first search does not report.
 - **Private work:** GitHub publishes an anonymous count of private contributions when the owner enables it on their profile. `getPrivateContributionCount` reads it over GraphQL (any token, the login passed as a variable), and the agent reports it as "N contributions to private repositories in the last year, GitHub does not say which". Nothing about private work comes from the owner's own declarations: every figure is GitHub's.
 - **Cost:** with a scope-less token, private repositories (a company's, a client's) cannot be named. For a named project with no public match, the tool's note is the answer: contributions to private repositories cannot be shown. A token with `repo` scope would name them, but `/api/mcp` would then serve private files to any caller, so it is not used. The search API allows 30 requests per minute, so results go through the same 10-minute cache.
+
+### The CV and portfolio site are converted once, and read through a tool
+
+- **Why:** a recruiter asks about roles, studies and skills, which GitHub does not have. Parsing two PDFs or fetching the portfolio site at question time would add seconds and a failure point, so they were converted once into `src/data/profile.json`. Text is copied verbatim in the sources' language, and every answer carries the `sources` with their dates, so the agent attributes facts ("according to their CV") instead of stating them as verified. The owner asked for data from GitHub or the CV, never from answers they could have planted.
+- **A tool, not the system prompt:** the whole profile is about 4,300 tokens. In the prompt it would be paid on every step of every question; behind `get_profile` it is paid only when a question needs it.
+- **Several sections per call, with no limit in the schema:** a technology question needs skills and projects. Asked for one section per call, the model spent four steps and hit the free tier's per-minute token budget (14 s, two fallbacks); with both in one call it answers in two steps (about 1.6 s). A first version capped a call at two sections in the input schema, and a broad question failed: Groq checks each tool call against the schema after generating it and fails the whole answer, and back then the fallback had already committed to Groq when the reasoning streamed. Two fixes: the fallback now holds reasoning back (see the fallback chain above), and the schema rejects only what is meaningless (an unknown section, or none); how much to read is guidance in the description.
+- **Owner-pinned:** the file declares its GitHub login, and the tool serves it only for that owner. Pointing the server at another owner never presents this CV as theirs.
+- **Cost:** the data is as old as its sources, and the CV can lag the repositories (it says 137 tests; the repository has more by now). The prompt makes the GitHub tools win for a repository's current state. Email and phone stay out of the file, which is public in the repository; contact goes through the portfolio site.
 
 ### Server-pinned owner and a trust boundary on history
 
