@@ -54,9 +54,9 @@
   --color-on-signal: var(--on-signal);
   --color-ok: var(--ok);
   --color-bad: var(--bad);
-  --font-sans: var(--font-plex-sans);
-  --font-mono: var(--font-plex-mono);
-  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-jetbrains-mono);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-display: var(--font-jetbrains-mono);
 }
 
 @layer base {
@@ -74,7 +74,7 @@
 
   body {
     color: var(--ink);
-    font-family: var(--font-plex-sans), ui-sans-serif, sans-serif;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   }
 
   /* No double-tap-to-zoom delay on anything people tap. */
