@@ -26,10 +26,10 @@ afterAll(async () => {
 });
 
 describe("portfolio MCP server", () => {
-  it("exposes exactly the three portfolio tools", async () => {
+  it("exposes exactly the four portfolio tools", async () => {
     const { tools } = await client.listTools();
 
-    expect(tools.map((t) => t.name).sort()).toEqual(["detect_stack", "get_readme", "list_repos"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["detect_stack", "get_readme", "list_contributions", "list_repos"]);
     for (const tool of tools) {
       expect(tool.description).toBeTruthy();
     }
@@ -129,6 +129,9 @@ describe("tool failure logging", () => {
         throw upstreamError;
       },
       listFiles: async () => {
+        throw upstreamError;
+      },
+      listExternalPullRequests: async () => {
         throw upstreamError;
       },
     };

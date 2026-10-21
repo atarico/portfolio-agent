@@ -38,6 +38,9 @@ const fakeGitHub: GitHubPort = {
   async listFiles() {
     return [];
   },
+  async listExternalPullRequests() {
+    return [];
+  },
 };
 
 describe("connectPortfolioMcp (in-process)", () => {
@@ -46,7 +49,7 @@ describe("connectPortfolioMcp (in-process)", () => {
 
     try {
       const tools = await connection.tools();
-      expect(Object.keys(tools).sort()).toEqual(["detect_stack", "get_readme", "list_repos"]);
+      expect(Object.keys(tools).sort()).toEqual(["detect_stack", "get_readme", "list_contributions", "list_repos"]);
     } finally {
       await connection.close();
     }

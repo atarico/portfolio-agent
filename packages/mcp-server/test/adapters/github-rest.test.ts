@@ -179,3 +179,49 @@ describe("GitHubRestAdapter.listFiles", () => {
     await expect(adapter.listFiles("octocat", "hello")).rejects.toThrow(/500.*boom/);
   });
 });
+
+describe("GitHubRestAdapter.listExternalPullRequests", () => {
+  it("lists pull requests the author opened outside their own repositories, with merge and approval state", async () => {
+    const query = "is:pr author:octocat -user:octocat";
+    const base = "https://api.github.com/search/issues";
+    const item = (repo: string, number: number, state: string, mergedAt: string | null) => ({
+      number,
+      title: `PR ${number}`,
+      html_url: `https://github.com/${repo}/pull/${number}`,
+      state,
+      created_at: "2026-03-01T00:00:00Z",
+      repository_url: `https://api.github.com/repos/${repo}`,
+      pull_request: { merged_at: mergedAt },
+    });
+    const { fetchImpl, requests } = fakeFetch({
+      [`${base}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100`]: () =>
+        json({
+          items: [
+            item("acme/cli", 40, "open", null),
+            item("friend/app", 7, "closed", "2026-03-02T00:00:00Z"),
+            item("acme/cli", 9, "closed", null),
+          ],
+        }),
+      [`${base}?q=${encodeURIComponent(`${query} review:approved`)}&per_page=100`]: () =>
+        json({ items: [item("friend/app", 7, "closed", "2026-03-02T00:00:00Z")] }),
+    });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    const prs = await adapter.listExternalPullRequests("octocat");
+
+    expect(prs.map(({ repo, number, state, approved }) => ({ repo, number, state, approved }))).toEqual([
+      { repo: "acme/cli", number: 40, state: "open", approved: false },
+      { repo: "friend/app", number: 7, state: "merged", approved: true },
+      { repo: "acme/cli", number: 9, state: "closed", approved: false },
+    ]);
+    expect(prs[1]).toMatchObject({ title: "PR 7", url: "https://github.com/friend/app/pull/7", createdAt: "2026-03-01T00:00:00Z" });
+    expect(requests).toHaveLength(2);
+  });
+
+  it("fails loudly when the search API refuses, instead of reporting no contributions", async () => {
+    const { fetchImpl } = fakeFetch({});
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    await expect(adapter.listExternalPullRequests("octocat")).rejects.toThrow(/GitHub API 404/);
+  });
+});

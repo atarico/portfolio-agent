@@ -1,4 +1,4 @@
-import type { GitHubPort, RepoSummary } from "../ports/github.ts";
+import type { GitHubPort, PullRequestSummary, RepoSummary } from "../ports/github.ts";
 
 export interface GitHubRestAdapterOptions {
   /** Personal access token. Optional: unauthenticated calls are limited to 60 requests/hour. */
@@ -20,6 +20,17 @@ interface GitHubRepoPayload {
   topics?: string[];
   fork: boolean;
   archived: boolean;
+}
+
+interface SearchIssuePayload {
+  number: number;
+  title: string;
+  html_url: string;
+  state: "open" | "closed";
+  created_at: string;
+  /** API URL of the repository, `.../repos/<owner>/<name>`. */
+  repository_url: string;
+  pull_request?: { merged_at: string | null };
 }
 
 const JSON_MEDIA_TYPE = "application/vnd.github+json";
@@ -75,6 +86,39 @@ export class GitHubRestAdapter implements GitHubPort {
 
     const payload = (await response.json()) as { tree?: Array<{ path: string; type: string }> };
     return (payload.tree ?? []).filter((entry) => entry.type === "blob").map((entry) => entry.path);
+  }
+
+  /**
+   * Two searches, run in parallel: every pull request `author` opened outside
+   * the repositories it owns (`-user:` excludes those), and the subset a
+   * reviewer approved, which the first search does not report. Both are
+   * public-only with a token that has no scopes, which is what this server uses.
+   */
+  async listExternalPullRequests(author: string): Promise<PullRequestSummary[]> {
+    const query = `is:pr author:${author} -user:${author}`;
+    const search = `${this.baseUrl}/search/issues`;
+    const [all, approved] = await Promise.all([
+      this.searchIssues(`${search}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100`),
+      this.searchIssues(`${search}?q=${encodeURIComponent(`${query} review:approved`)}&per_page=100`),
+    ]);
+
+    const approvedUrls = new Set(approved.map((item) => item.html_url));
+    return all.map((item) => ({
+      repo: new URL(item.repository_url).pathname.split("/").slice(-2).join("/"),
+      number: item.number,
+      title: item.title,
+      url: item.html_url,
+      state: item.pull_request?.merged_at ? "merged" : item.state,
+      approved: approvedUrls.has(item.html_url),
+      createdAt: item.created_at,
+    }));
+  }
+
+  private async searchIssues(url: string): Promise<SearchIssuePayload[]> {
+    const response = await this.request(url, JSON_MEDIA_TYPE);
+    await this.assertOk(response, url);
+    const payload = (await response.json()) as { items?: SearchIssuePayload[] };
+    return payload.items ?? [];
   }
 
   private async rawOrNull(url: string): Promise<string | null> {

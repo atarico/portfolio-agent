@@ -23,6 +23,16 @@ describe("CachingGitHubPort", () => {
     expect(inner.calls.filter((c) => c.startsWith("listFiles"))).toHaveLength(1);
   });
 
+  it("serves repeated contribution lookups from cache (the search API allows 30 requests a minute)", async () => {
+    const inner = github();
+    const cached = new CachingGitHubPort(inner);
+
+    await cached.listExternalPullRequests("octocat");
+    await cached.listExternalPullRequests("octocat");
+
+    expect(inner.calls.filter((c) => c.startsWith("listExternalPullRequests"))).toHaveLength(1);
+  });
+
   it("caches null results", async () => {
     const inner = github();
     const cached = new CachingGitHubPort(inner);
@@ -45,6 +55,7 @@ describe("CachingGitHubPort", () => {
       getReadme: (owner, repo) => base.getReadme(owner, repo),
       getFile: (owner, repo, path) => base.getFile(owner, repo, path),
       listFiles: (owner, repo) => base.listFiles(owner, repo),
+      listExternalPullRequests: (author) => base.listExternalPullRequests(author),
     };
     const cached = new CachingGitHubPort(flaky);
 

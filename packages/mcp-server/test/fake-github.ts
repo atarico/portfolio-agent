@@ -1,4 +1,4 @@
-import type { GitHubPort, RepoSummary } from "../src/ports/github.ts";
+import type { GitHubPort, PullRequestSummary, RepoSummary } from "../src/ports/github.ts";
 
 export interface FakeGitHubData {
   repos?: RepoSummary[];
@@ -6,6 +6,8 @@ export interface FakeGitHubData {
   readmes?: Record<string, string>;
   /** Keyed by `owner/repo/path`. */
   files?: Record<string, string>;
+  /** Pull requests opened outside the author's own repositories, keyed by author. */
+  pullRequests?: Record<string, PullRequestSummary[]>;
 }
 
 /** In-memory GitHub port for behavior tests. */
@@ -24,6 +26,11 @@ export class FakeGitHub implements GitHubPort {
   async getReadme(owner: string, repo: string): Promise<string | null> {
     this.calls.push(`getReadme:${owner}/${repo}`);
     return this.data.readmes?.[`${owner}/${repo}`] ?? null;
+  }
+
+  async listExternalPullRequests(author: string): Promise<PullRequestSummary[]> {
+    this.calls.push(`listExternalPullRequests:${author}`);
+    return this.data.pullRequests?.[author] ?? [];
   }
 
   async getFile(owner: string, repo: string, path: string): Promise<string | null> {
