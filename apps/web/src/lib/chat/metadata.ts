@@ -27,10 +27,16 @@ export function answerMetadata(
   return undefined;
 }
 
-/** "gemini-3.6-flash · 2.4 s", or whichever half is known; `null` when neither is. */
+/** The UI copy is English, so durations are formatted for English too. */
+const SECONDS = new Intl.NumberFormat("en", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/**
+ * "gemini-3.6-flash · 2.4 s", or whichever half is known; `null` when neither is.
+ * The space before the unit is non-breaking, so "s" never wraps away from its number.
+ */
 export function formatAnswerMetadata(metadata: AnswerMetadata | undefined): string | null {
   const parts: string[] = [];
   if (metadata?.model) parts.push(metadata.model);
-  if (metadata?.durationMs !== undefined) parts.push(`${(metadata.durationMs / 1000).toFixed(1)} s`);
+  if (metadata?.durationMs !== undefined) parts.push(`${SECONDS.format(metadata.durationMs / 1000)}\u00a0s`);
   return parts.length > 0 ? parts.join(" · ") : null;
 }

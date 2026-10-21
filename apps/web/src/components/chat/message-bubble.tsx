@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 import { formatAnswerMetadata, type ChatMessage } from "@/lib/chat/metadata";
-import { describeToolPart } from "@/lib/chat/tool-parts";
+import { describeToolPart, type ToolPartView } from "@/lib/chat/tool-parts";
 
 import { Markdown } from "./markdown";
 import { ToolCallBadge } from "./tool-call-badge";
@@ -8,46 +10,103 @@ interface MessageBubbleProps {
   message: ChatMessage;
 }
 
+/**
+ * The conversation reads like an interview transcript: the visitor's question
+ * as a "Q." line, the agent's answer as an "A." card with its tool trace.
+ */
 export function MessageBubble({ message }: MessageBubbleProps) {
-  const isUser = message.role === "user";
-  const servedBy = isUser ? null : formatAnswerMetadata(message.metadata);
+  return message.role === "user" ? <Question message={message} /> : <Answer message={message} />;
+}
+
+function Question({ message }: MessageBubbleProps) {
+  return (
+    <div className="flex gap-3 sm:gap-4">
+      <Marker className="text-signal-ink">Q.</Marker>
+      <div className="flex min-w-0 flex-col gap-2 pt-0.5">
+        <span className="sr-only">You asked:</span>
+        {message.parts.map((part, index) =>
+          // The user's text stays literal: it is what they typed, and reformatting
+          // their own words back at them would be wrong - a message about `**bold**`
+          // should read as they wrote it.
+          part.type === "text" ? (
+            <p
+              key={`${message.id}-${index}`}
+              className="whitespace-pre-wrap break-words font-display text-[21px] leading-snug tracking-[-0.01em] sm:text-2xl"
+            >
+              {part.text}
+            </p>
+          ) : null,
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Answer({ message }: MessageBubbleProps) {
+  // The model arrives with every step but the duration only at the end, so the
+  // footer waits for the duration: naming a model mid-answer reads as finished.
+  const servedBy = message.metadata?.durationMs === undefined ? null : formatAnswerMetadata(message.metadata);
 
   return (
-    <div className={isUser ? "flex justify-end" : "flex justify-start"}>
-      <div
-        className={
-          isUser
-            ? "max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-4 py-2.5 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
-            : "flex max-w-[85%] flex-col gap-2 rounded-2xl rounded-bl-sm border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
-        }
-      >
-        {message.parts.map((part, index) => {
-          const key = `${message.id}-${index}`;
-
-          if (part.type === "text") {
-            // Only the assistant's text is Markdown. The user's stays literal: it is what
-            // they typed, and reformatting their own words back at them would be wrong -
-            // a message about `**bold**` should read as they wrote it.
-            return isUser ? (
-              <p key={key} className="whitespace-pre-wrap text-[15px] leading-relaxed">
-                {part.text}
-              </p>
-            ) : (
-              <Markdown key={key}>{part.text}</Markdown>
-            );
-          }
-
-          const tool = describeToolPart(part);
-          if (tool) {
-            return <ToolCallBadge key={key} tool={tool} />;
-          }
-
-          return null;
-        })}
+    <div className="flex gap-3 sm:gap-4">
+      <Marker className="text-ink-faint">A.</Marker>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 rounded-xl border border-rule bg-paper-raised px-4 py-4 shadow-[0_18px_40px_-32px_rgb(0_0_0/0.45)] sm:px-5">
+        <span className="sr-only">Answer:</span>
+        {toBlocks(message).map((block) =>
+          block.kind === "text" ? (
+            <Markdown key={block.key}>{block.text}</Markdown>
+          ) : (
+            <ol key={block.key} aria-label="Tools the agent called" className="flex flex-col border-l border-rule pl-3">
+              {block.tools.map((tool, index) => (
+                <li key={`${block.key}-${index}`}>
+                  <ToolCallBadge tool={tool} />
+                </li>
+              ))}
+            </ol>
+          ),
+        )}
         {servedBy ? (
-          <footer className="font-mono text-xs text-zinc-400 dark:text-zinc-500">{servedBy}</footer>
+          <footer className="flex items-center gap-2 border-t border-dashed border-rule pt-3 font-mono text-[11px] text-ink-faint">
+            <span aria-hidden className="size-1.5 rounded-full bg-ok" />
+            <span className="uppercase tracking-[0.14em]">answered by</span>
+            <span className="text-ink-soft" translate="no">
+              {servedBy}
+            </span>
+          </footer>
         ) : null}
       </div>
     </div>
   );
+}
+
+function Marker({ className, children }: { className: string; children: ReactNode }) {
+  return (
+    <span aria-hidden className={`w-6 shrink-0 pt-0.5 font-display text-2xl leading-none italic ${className}`}>
+      {children}
+    </span>
+  );
+}
+
+type Block = { kind: "text"; key: string; text: string } | { kind: "tools"; key: string; tools: ToolPartView[] };
+
+/**
+ * Splits an answer into what it said and what it did. Consecutive tool calls
+ * form one trace, so a step that called four tools reads as one block of work
+ * rather than four interruptions; the order of everything is kept.
+ */
+function toBlocks(message: ChatMessage): Block[] {
+  const blocks: Block[] = [];
+  message.parts.forEach((part, index) => {
+    const key = `${message.id}-${index}`;
+    if (part.type === "text") {
+      if (part.text) blocks.push({ kind: "text", key, text: part.text });
+      return;
+    }
+    const tool = describeToolPart(part);
+    if (!tool) return;
+    const last = blocks.at(-1);
+    if (last?.kind === "tools") last.tools.push(tool);
+    else blocks.push({ kind: "tools", key, tools: [tool] });
+  });
+  return blocks;
 }

@@ -1,26 +1,147 @@
 @import "tailwindcss";
 
+/*
+ * Editorial engineering-notebook palette: warm paper, ink, and one signal
+ * colour for whatever the agent is doing right now. The signal is the accent of
+ * the owner's portfolio, #00ff41: used as-is on the dark scheme (13.6:1), and
+ * as a deeper shade of the same 135° hue on paper, where #00ff41 itself would
+ * be 1.4:1. Text colours keep at least 4.5:1 against their paper in both schemes.
+ */
 :root {
-  --background: #fafafa;
-  --foreground: #18181b;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  color-scheme: light;
+  --paper: #f3efe6;
+  --paper-raised: #fbf9f4;
+  --ink: #1b1a17;
+  --ink-soft: #57524a;
+  --ink-faint: #7d7668;
+  --rule: #d8d0bf;
+  --rule-strong: #1b1a17;
+  --signal: #007a1f;
+  --signal-ink: #006e1c;
+  --on-signal: #ffffff;
+  --ok: #007a1f;
+  --bad: #b42318;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #09090b;
-    --foreground: #e4e4e7;
+    color-scheme: dark;
+    --paper: #13120f;
+    --paper-raised: #1b1a16;
+    --ink: #ece6d8;
+    --ink-soft: #b4ac9a;
+    --ink-faint: #8a8372;
+    --rule: #35322a;
+    --rule-strong: #ece6d8;
+    --signal: #00ff41;
+    --signal-ink: #00ff41;
+    --on-signal: #0a0a0a;
+    --ok: #00ff41;
+    --bad: #f2705e;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-on-signal: var(--on-signal);
+  --color-ok: var(--ok);
+  --color-bad: var(--bad);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
+  --font-display: var(--font-fraunces);
+}
+
+@layer base {
+  :root {
+    /* A faint paper grain: an inline SVG noise tile, so it costs no request. */
+    --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  html {
+    /* The composer is sticky at the bottom: keep a focused element clear of it. */
+    scroll-padding-bottom: 8rem;
+    /* A tap flashes the signal colour faintly instead of the browser's grey box. */
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--signal) 18%, transparent);
+  }
+
+  body {
+    color: var(--ink);
+    font-family: var(--font-plex-sans), ui-sans-serif, sans-serif;
+  }
+
+  /* No double-tap-to-zoom delay on anything people tap. */
+  a,
+  button,
+  summary,
+  input {
+    touch-action: manipulation;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--signal) 28%, transparent);
+  }
+
+  /* In the base layer so a component's own focus treatment (utilities) wins. */
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * The page's paper, pinned to the viewport. Anything that must sit opaquely on
+ * top of scrolling content (the composer) uses the same class, so its grain
+ * lines up with the page's and the band does not read as a separate box.
+ */
+.paper,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--paper);
+  background-image: var(--grain);
+  background-attachment: fixed;
+}
+
+/* One orchestrated entrance: sections rise in sequence, staggered by --rise-delay. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 560ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--rise-delay, 0ms);
+}
+
+/* The "agent is working" bar: a short signal stroke sweeping a hairline. */
+@keyframes scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.scan {
+  animation: scan 1.3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .scan {
+    animation: none;
+  }
 }
