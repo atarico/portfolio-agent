@@ -128,6 +128,9 @@ describe("tool failure logging", () => {
       getFile: async () => {
         throw upstreamError;
       },
+      listFiles: async () => {
+        throw upstreamError;
+      },
     };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 

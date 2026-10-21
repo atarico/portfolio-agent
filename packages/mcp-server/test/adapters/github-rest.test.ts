@@ -142,3 +142,40 @@ describe("GitHubRestAdapter.getFile path handling", () => {
     expect(requests).toHaveLength(1);
   });
 });
+
+describe("GitHubRestAdapter.listFiles", () => {
+  const url = "https://api.github.com/repos/octocat/hello/git/trees/HEAD?recursive=1";
+
+  it("returns blob paths only, using the JSON media type", async () => {
+    const { fetchImpl, requests } = fakeFetch({
+      [url]: () =>
+        json({
+          tree: [
+            { path: "apps", type: "tree" },
+            { path: "apps/web/package.json", type: "blob" },
+            { path: "README.md", type: "blob" },
+            { path: "vendor/lib", type: "commit" },
+          ],
+        }),
+    });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    expect(await adapter.listFiles("octocat", "hello")).toEqual(["apps/web/package.json", "README.md"]);
+    expect(requests[0]?.headers.accept).toBe("application/vnd.github+json");
+  });
+
+  it("returns [] when the repository is not found (404) or empty (409)", async () => {
+    for (const status of [404, 409]) {
+      const { fetchImpl } = fakeFetch({ [url]: () => json({ message: "x" }, status) });
+      const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+      expect(await adapter.listFiles("octocat", "hello"), String(status)).toEqual([]);
+    }
+  });
+
+  it("throws on other failures", async () => {
+    const { fetchImpl } = fakeFetch({ [url]: () => json({ message: "boom" }, 500) });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    await expect(adapter.listFiles("octocat", "hello")).rejects.toThrow(/500.*boom/);
+  });
+});

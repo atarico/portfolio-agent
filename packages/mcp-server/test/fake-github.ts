@@ -30,6 +30,14 @@ export class FakeGitHub implements GitHubPort {
     this.calls.push(`getFile:${owner}/${repo}/${path}`);
     return this.data.files?.[`${owner}/${repo}/${path}`] ?? null;
   }
+
+  async listFiles(owner: string, repo: string): Promise<string[]> {
+    this.calls.push(`listFiles:${owner}/${repo}`);
+    const prefix = `${owner}/${repo}/`;
+    return Object.keys(this.data.files ?? {})
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length));
+  }
 }
 
 export function repo(overrides: Partial<RepoSummary> & { name: string }): RepoSummary {

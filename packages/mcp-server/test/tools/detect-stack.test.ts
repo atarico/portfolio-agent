@@ -104,3 +104,74 @@ describe("detectStack lockfile probing", () => {
     expect(isolated.calls).not.toContain("getFile:octocat/two-locks/package-lock.json");
   });
 });
+
+describe("detectStack monorepos", () => {
+  const monorepo = new FakeGitHub({
+    files: {
+      "octocat/mono/package.json": JSON.stringify({ name: "root", packageManager: "pnpm@10.0.0", devDependencies: { typescript: "^5" } }),
+      "octocat/mono/apps/web/package.json": JSON.stringify({ dependencies: { next: "16", react: "19", ai: "6" } }),
+      "octocat/mono/packages/lib/package.json": JSON.stringify({
+        dependencies: { "@modelcontextprotocol/server": "1", zod: "4" },
+      }),
+      "octocat/mono/node_modules/x/package.json": JSON.stringify({ dependencies: { express: "4" } }),
+      "octocat/mono/a/b/c/d/package.json": JSON.stringify({ dependencies: { vue: "3" } }),
+    },
+  });
+
+  it("merges workspace manifests when the root declares no dependencies", async () => {
+    const result = await detectStack(monorepo, { owner: "octocat", repo: "mono" });
+
+    expect(result.frameworks).toEqual(["Next.js", "React"]);
+    expect(result.notable).toEqual(expect.arrayContaining(["TypeScript", "Zod", "Vercel AI SDK", "MCP SDK"]));
+    expect(result.detectedFrom).toEqual([
+      "package.json",
+      "apps/web/package.json",
+      "packages/lib/package.json",
+    ]);
+    expect(result.dependencies).toEqual(expect.arrayContaining(["next", "zod"]));
+    expect(result.workspaces).toEqual([
+      { path: "apps/web", frameworks: ["Next.js", "React"], notable: ["Vercel AI SDK"] },
+      { path: "packages/lib", frameworks: [], notable: ["Zod", "MCP SDK"] },
+    ]);
+    expect(result.packageManager).toBe("pnpm");
+  });
+
+  it("scans when a workspaces field is declared even if the root has dependencies", async () => {
+    const gh = new FakeGitHub({
+      files: {
+        "octocat/ws/package.json": JSON.stringify({ workspaces: { packages: ["apps/*"] }, dependencies: { zod: "4" } }),
+        "octocat/ws/apps/api/package.json": JSON.stringify({ dependencies: { hono: "4" } }),
+      },
+    });
+
+    const result = await detectStack(gh, { owner: "octocat", repo: "ws" });
+
+    expect(result.frameworks).toEqual(["Hono"]);
+    expect(result.workspaces.map((w) => w.path)).toEqual(["apps/api"]);
+  });
+
+  it("skips unparsable workspace manifests with a note", async () => {
+    const gh = new FakeGitHub({
+      files: {
+        "octocat/bad/package.json": JSON.stringify({ workspaces: ["apps/*"] }),
+        "octocat/bad/apps/x/package.json": "{ nope",
+      },
+    });
+
+    const result = await detectStack(gh, { owner: "octocat", repo: "bad" });
+
+    expect(result.workspaces).toEqual([]);
+    expect(result.notes.some((n) => n.includes("apps/x/package.json"))).toBe(true);
+  });
+
+  it("does not list files for a regular single-package project", async () => {
+    const gh = new FakeGitHub({
+      files: { "octocat/app/package.json": JSON.stringify({ dependencies: { astro: "6" } }) },
+    });
+
+    const result = await detectStack(gh, { owner: "octocat", repo: "app" });
+
+    expect(gh.calls.some((c) => c.startsWith("listFiles"))).toBe(false);
+    expect(result.workspaces).toEqual([]);
+  });
+});

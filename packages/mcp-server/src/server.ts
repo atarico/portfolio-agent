@@ -75,7 +75,7 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
     {
       title: "Detect stack",
       description:
-        "Inspect a repository's manifest (package.json, pyproject.toml or go.mod) and summarize its runtime, frameworks, notable libraries and package manager.",
+        "Inspect a repository's manifest (package.json, pyproject.toml or go.mod) and summarize its runtime, frameworks, notable libraries and package manager. Follows monorepo workspaces (apps/*, packages/*) and reports what each package uses.",
       inputSchema: z.object({
         repo: repoField,
       }),

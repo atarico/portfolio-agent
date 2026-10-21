@@ -20,8 +20,17 @@ export type StackReport = {
   devDependencies: string[];
   /** Manifest files that were actually read to build this report. */
   detectedFrom: string[];
+  /** Per-package findings for monorepos (empty when not a monorepo or no workspace manifests were found). */
+  workspaces: WorkspaceReport[];
   notes: string[];
 };
+
+export interface WorkspaceReport {
+  /** Directory of the workspace package, e.g. `apps/web`. */
+  path: string;
+  frameworks: string[];
+  notable: string[];
+}
 
 /** Ordered so that meta-frameworks are listed before the libraries they wrap. */
 const NODE_FRAMEWORKS: ReadonlyArray<readonly [dependency: string, label: string]> = [
@@ -85,8 +94,15 @@ const LOCKFILES: ReadonlyArray<readonly [file: string, manager: string]> = [
   ["bun.lock", "bun"],
 ];
 
+/** Workspace manifests read per repository; bounds the extra GitHub calls (60/hour unauthenticated). */
+export const MAX_WORKSPACE_MANIFESTS = 8;
+
+/** `apps/web/package.json` has 3 segments; deeper manifests are fixtures or vendored code, not workspaces. */
+const MAX_MANIFEST_PATH_SEGMENTS = 4;
+
 interface PackageJson {
   packageManager?: string;
+  workspaces?: unknown;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
 }
@@ -105,6 +121,7 @@ export async function detectStack(
     dependencies: [],
     devDependencies: [],
     detectedFrom: [],
+    workspaces: [],
     notes: [],
   };
 
@@ -148,10 +165,35 @@ async function describeNodeProject(
     return;
   }
 
-  report.dependencies = Object.keys(parsed.dependencies ?? {});
-  report.devDependencies = Object.keys(parsed.devDependencies ?? {});
+  const rootDependencies = Object.keys(parsed.dependencies ?? {});
+  const rootDevDependencies = Object.keys(parsed.devDependencies ?? {});
+  const rootInstalled = new Set([...rootDependencies, ...rootDevDependencies]);
 
-  const installed = new Set([...report.dependencies, ...report.devDependencies]);
+  const dependencies = new Set(rootDependencies);
+  const devDependencies = new Set(rootDevDependencies);
+  const installed = new Set(rootInstalled);
+
+  // Workspace roots usually hold no runtime dependencies of their own, so
+  // reading only the root manifest would report "no frameworks".
+  if (parsed.workspaces !== undefined || rootDependencies.length === 0) {
+    const manifests = await readWorkspaceManifests(github, report);
+    for (const { path, manifest } of manifests) {
+      const workspaceDeps = Object.keys(manifest.dependencies ?? {});
+      const workspaceDevDeps = Object.keys(manifest.devDependencies ?? {});
+      workspaceDeps.forEach((name) => dependencies.add(name));
+      workspaceDevDeps.forEach((name) => devDependencies.add(name));
+      const own = new Set([...workspaceDeps, ...workspaceDevDeps]);
+      own.forEach((name) => installed.add(name));
+      report.workspaces.push({
+        path: path.slice(0, -"/package.json".length),
+        frameworks: pickLabels(NODE_FRAMEWORKS, own),
+        notable: pickLabels(NODE_NOTABLE, own),
+      });
+    }
+  }
+
+  report.dependencies = [...dependencies];
+  report.devDependencies = [...devDependencies];
   report.frameworks = pickLabels(NODE_FRAMEWORKS, installed);
   report.notable = pickLabels(NODE_NOTABLE, installed);
 
@@ -164,6 +206,45 @@ async function describeNodeProject(
   const probe = await probeLockfiles(github, report.owner, report.repo);
   report.packageManager = probe.packageManager;
   report.detectedFrom.push(...probe.detectedFrom);
+}
+
+interface WorkspaceManifest {
+  path: string;
+  manifest: PackageJson;
+}
+
+/** Workspace manifests in the repository, shallowest first, capped at {@link MAX_WORKSPACE_MANIFESTS}. */
+function selectWorkspaceManifestPaths(files: readonly string[]): string[] {
+  const depth = (path: string) => path.split("/").length;
+  return files
+    .filter(
+      (path) =>
+        path.endsWith("/package.json") &&
+        !path.includes("node_modules/") &&
+        depth(path) <= MAX_MANIFEST_PATH_SEGMENTS,
+    )
+    .sort((a, b) => depth(a) - depth(b) || a.localeCompare(b))
+    .slice(0, MAX_WORKSPACE_MANIFESTS);
+}
+
+/** Fetches and parses workspace manifests in parallel; unparsable ones are skipped with a note. */
+async function readWorkspaceManifests(github: GitHubPort, report: StackReport): Promise<WorkspaceManifest[]> {
+  const paths = selectWorkspaceManifestPaths(await github.listFiles(report.owner, report.repo));
+  const sources = await Promise.all(paths.map((path) => github.getFile(report.owner, report.repo, path)));
+
+  const manifests: WorkspaceManifest[] = [];
+  paths.forEach((path, index) => {
+    const source = sources[index];
+    if (source === null || source === undefined) return;
+    const manifest = parsePackageJson(source);
+    if (manifest === null) {
+      report.notes.push(`${path} could not be parsed`);
+      return;
+    }
+    report.detectedFrom.push(path);
+    manifests.push({ path, manifest });
+  });
+  return manifests;
 }
 
 function parsePackageJson(source: string): PackageJson | null {
