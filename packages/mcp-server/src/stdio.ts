@@ -11,11 +11,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 
 import { GitHubRestAdapter } from "./adapters/github-rest.ts";
 import { resolveOwner } from "./owner.ts";
+import { DEFAULT_PROFILE } from "./profile.ts";
 import { createPortfolioMcpServer } from "./server.ts";
 
 const server = createPortfolioMcpServer({
   github: new GitHubRestAdapter({ token: process.env.GITHUB_TOKEN }),
   owner: resolveOwner(process.env),
+  profile: DEFAULT_PROFILE,
 });
 
 await server.connect(new StdioServerTransport());

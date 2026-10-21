@@ -4,6 +4,14 @@ export {
 } from "./adapters/caching-github.ts";
 export { GitHubRestAdapter, type GitHubRestAdapterOptions } from "./adapters/github-rest.ts";
 export { DEFAULT_OWNER, resolveOwner } from "./owner.ts";
+export {
+  DEFAULT_PROFILE,
+  type Profile,
+  type ProfileEducation,
+  type ProfileExperience,
+  type ProfileProject,
+  type ProfileSource,
+} from "./profile.ts";
 export type {
   GitHubPort,
   PrivateContributionCount,
@@ -19,6 +27,13 @@ export {
   type PortfolioServerDeps,
 } from "./server.ts";
 export { detectStack, type DetectStackInput, type StackReport } from "./tools/detect-stack.ts";
+export {
+  PROFILE_SECTIONS,
+  getProfile,
+  type GetProfileInput,
+  type GetProfileResult,
+  type ProfileSection,
+} from "./tools/get-profile.ts";
 export { getReadme, type GetReadmeInput, type GetReadmeResult } from "./tools/get-readme.ts";
 export {
   listContributions,

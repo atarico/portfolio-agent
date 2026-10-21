@@ -1,4 +1,4 @@
-import type { GitHubPort } from "@portfolio-agent/mcp-server";
+import { DEFAULT_OWNER, type GitHubPort } from "@portfolio-agent/mcp-server";
 import { describe, expect, it } from "vitest";
 
 import { connectPortfolioMcp, remoteTransportConfig, resolveMcpServerUrl } from "./client";
@@ -52,7 +52,29 @@ describe("connectPortfolioMcp (in-process)", () => {
 
     try {
       const tools = await connection.tools();
-      expect(Object.keys(tools).sort()).toEqual(["detect_stack", "get_readme", "list_contributions", "list_repos"]);
+      expect(Object.keys(tools).sort()).toEqual([
+        "detect_stack",
+        "get_profile",
+        "get_readme",
+        "list_contributions",
+        "list_repos",
+      ]);
+    } finally {
+      await connection.close();
+    }
+  });
+
+  it("serves the default owner's CV and portfolio profile through get_profile", async () => {
+    const connection = await connectPortfolioMcp({ env: {}, owner: DEFAULT_OWNER, github: fakeGitHub });
+
+    try {
+      const tools = await connection.tools();
+      const result = await tools.get_profile!.execute!(
+        { sections: ["education"] },
+        { toolCallId: "call-1", messages: [], context: {} },
+      );
+
+      expect(result).toMatchObject({ structuredContent: { owner: DEFAULT_OWNER, found: true } });
     } finally {
       await connection.close();
     }

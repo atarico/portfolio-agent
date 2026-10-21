@@ -1,5 +1,5 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { GitHubRestAdapter, createPortfolioMcpServer, resolveOwner } from "@portfolio-agent/mcp-server";
+import { DEFAULT_PROFILE, GitHubRestAdapter, createPortfolioMcpServer, resolveOwner } from "@portfolio-agent/mcp-server";
 
 import { PUBLIC_ROUTE_BUDGET, createRateLimiter, type RateLimiter } from "@/lib/chat/rate-limit";
 import type { Env } from "@/lib/http/env";
@@ -23,6 +23,7 @@ export function portfolioServerFor(env: Env, fetchImpl?: typeof fetch): ReturnTy
   return createPortfolioMcpServer({
     github: new GitHubRestAdapter({ token: env.GITHUB_TOKEN, fetch: fetchImpl }),
     owner: resolveOwner(env),
+    profile: DEFAULT_PROFILE,
   });
 }
 
