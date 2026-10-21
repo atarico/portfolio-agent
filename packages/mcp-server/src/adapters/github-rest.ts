@@ -66,6 +66,17 @@ export class GitHubRestAdapter implements GitHubPort {
     return this.rawOrNull(url);
   }
 
+  async listFiles(owner: string, repo: string): Promise<string[]> {
+    const url = `${this.baseUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/HEAD?recursive=1`;
+    const response = await this.request(url, JSON_MEDIA_TYPE);
+    // 404: no such repository; 409: the repository is empty (no commits, no tree).
+    if (response.status === 404 || response.status === 409) return [];
+    await this.assertOk(response, url);
+
+    const payload = (await response.json()) as { tree?: Array<{ path: string; type: string }> };
+    return (payload.tree ?? []).filter((entry) => entry.type === "blob").map((entry) => entry.path);
+  }
+
   private async rawOrNull(url: string): Promise<string | null> {
     const response = await this.request(url, RAW_MEDIA_TYPE);
     if (response.status === 404) return null;

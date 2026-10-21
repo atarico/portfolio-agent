@@ -26,4 +26,6 @@ export interface GitHubPort {
   getReadme(owner: string, repo: string): Promise<string | null>;
   /** Raw file content at `path`, or `null` when it does not exist. */
   getFile(owner: string, repo: string, path: string): Promise<string | null>;
+  /** Every file (blob) path at the default branch HEAD; `[]` when the repository is empty or not found. */
+  listFiles(owner: string, repo: string): Promise<string[]>;
 }

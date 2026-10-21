@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useMemo, useState } from "react";
 
+import type { ChatMessage } from "@/lib/chat/metadata";
 import { clientErrorText } from "@/lib/http/errors";
 
 import { ChatInput } from "./chat-input";
@@ -16,8 +17,8 @@ interface ChatProps {
 
 /** Container: owns chat state and wiring; rendering is delegated to presentational parts. */
 export function Chat({ owner }: ChatProps) {
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
-  const { messages, sendMessage, status, error, stop, clearError } = useChat({ transport });
+  const transport = useMemo(() => new DefaultChatTransport<ChatMessage>({ api: "/api/chat" }), []);
+  const { messages, sendMessage, status, error, stop, clearError } = useChat<ChatMessage>({ transport });
   const [input, setInput] = useState("");
 
   const busy = status === "submitted" || status === "streaming";

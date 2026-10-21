@@ -1,8 +1,10 @@
 import { createMCPClient } from "@ai-sdk/mcp";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
-import { GitHubRestAdapter, type GitHubPort, createPortfolioMcpServer } from "@portfolio-agent/mcp-server";
+import { type GitHubPort, createPortfolioMcpServer } from "@portfolio-agent/mcp-server";
 
 import type { Env } from "@/lib/http/env";
+
+import { sharedGitHubPort } from "./github";
 
 export interface PortfolioMcpConnection {
   /** MCP tools converted to AI SDK tools, keyed by tool name. */
@@ -15,7 +17,7 @@ export interface ConnectOptions {
   env?: Env;
   /** Portfolio owner the in-process server is pinned to. */
   owner: string;
-  /** GitHub port for the in-process server. Defaults to the REST adapter. */
+  /** GitHub port for the in-process server. Defaults to the shared, cached REST adapter. */
   github?: GitHubPort;
 }
 
@@ -75,7 +77,7 @@ export async function connectPortfolioMcp({
 
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const server = createPortfolioMcpServer({
-    github: github ?? new GitHubRestAdapter({ token: env.GITHUB_TOKEN }),
+    github: github ?? sharedGitHubPort(env),
     owner,
   });
   await server.connect(serverTransport);

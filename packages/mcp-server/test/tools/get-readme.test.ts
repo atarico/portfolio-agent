@@ -48,11 +48,11 @@ describe("getReadme", () => {
     expect(result.truncated).toBe(true);
   });
 
-  it("uses a 12k character default cap", async () => {
+  it("uses a 4k character default cap", async () => {
     const result = await getReadme(github, { owner: "octocat", repo: "long" });
 
     if (!result.found) throw new Error("unreachable");
-    expect(result.content).toHaveLength(12_000);
+    expect(result.content).toHaveLength(4_000);
     expect(result.truncated).toBe(true);
   });
 

@@ -1,3 +1,7 @@
+export {
+  CachingGitHubPort,
+  type CachingGitHubPortOptions,
+} from "./adapters/caching-github.ts";
 export { GitHubRestAdapter, type GitHubRestAdapterOptions } from "./adapters/github-rest.ts";
 export { DEFAULT_OWNER, resolveOwner } from "./owner.ts";
 export type { GitHubPort, RepoSummary } from "./ports/github.ts";

@@ -35,6 +35,9 @@ const fakeGitHub: GitHubPort = {
   async getFile() {
     return null;
   },
+  async listFiles() {
+    return [];
+  },
 };
 
 describe("connectPortfolioMcp (in-process)", () => {
