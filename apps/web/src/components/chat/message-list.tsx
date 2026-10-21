@@ -1,13 +1,15 @@
 "use client";
 
-import type { ChatStatus, UIMessage } from "ai";
+import type { ChatStatus } from "ai";
 import { useEffect, useRef } from "react";
+
+import type { ChatMessage } from "@/lib/chat/metadata";
 
 import { EmptyState } from "./empty-state";
 import { MessageBubble } from "./message-bubble";
 
 interface MessageListProps {
-  messages: UIMessage[];
+  messages: ChatMessage[];
   owner: string;
   status: ChatStatus;
   onSuggestion: (text: string) => void;

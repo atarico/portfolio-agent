@@ -1,16 +1,16 @@
-import type { UIMessage } from "ai";
-
+import { formatAnswerMetadata, type ChatMessage } from "@/lib/chat/metadata";
 import { describeToolPart } from "@/lib/chat/tool-parts";
 
 import { Markdown } from "./markdown";
 import { ToolCallBadge } from "./tool-call-badge";
 
 interface MessageBubbleProps {
-  message: UIMessage;
+  message: ChatMessage;
 }
 
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const servedBy = isUser ? null : formatAnswerMetadata(message.metadata);
 
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -44,6 +44,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
           return null;
         })}
+        {servedBy ? (
+          <footer className="font-mono text-xs text-zinc-400 dark:text-zinc-500">{servedBy}</footer>
+        ) : null}
       </div>
     </div>
   );
