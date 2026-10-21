@@ -70,6 +70,16 @@ describe("portfolio MCP server", () => {
     expect(JSON.parse(first?.text ?? "")).toMatchObject({ owner: "octocat" });
   });
 
+  it("serializes the text content as compact JSON that matches structuredContent", async () => {
+    const result = await client.callTool({ name: "list_repos", arguments: {} });
+
+    const [first] = result.content as Array<{ type: string; text: string }>;
+    const text = first?.text ?? "";
+    expect(text).not.toMatch(/\n/);
+    expect(text).toBe(JSON.stringify(JSON.parse(text)));
+    expect(JSON.parse(text)).toEqual(result.structuredContent);
+  });
+
   it("get_readme returns the README for a repo", async () => {
     const result = await client.callTool({ name: "get_readme", arguments: { repo: "portfolio" } });
 

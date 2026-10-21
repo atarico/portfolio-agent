@@ -103,8 +103,12 @@ export function createPortfolioMcpServer(deps: PortfolioServerDeps): McpServer {
 async function run(name: string, body: () => Promise<Record<string, unknown>>): Promise<CallToolResult> {
   try {
     const payload = await body();
+    // Compact on purpose: the LLM client forwards only this text (not
+    // structuredContent), and pretty-printing costs ~25% more tokens
+    // (list_repos for 30 repos: 10.7k chars indented vs 8.3k compact) on
+    // free tiers capped at ~8,000 tokens/minute. structuredContent is unchanged.
     return {
-      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(payload) }],
       structuredContent: payload,
     };
   } catch (error) {

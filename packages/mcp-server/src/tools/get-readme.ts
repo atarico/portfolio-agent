@@ -17,7 +17,14 @@ export type GetReadmeResult =
   | { owner: string; repo: string; found: true; content: string; truncated: boolean }
   | { owner: string; repo: string; found: false; message: string };
 
-export const DEFAULT_README_MAX_CHARS = 12_000;
+/**
+ * Default cap on README size. 4,000 characters is about 1.1k tokens (12,000
+ * was about 3.4k): enough for the pitch and the stack of a project, while the
+ * free LLM tiers this agent runs on cap throughput at ~8,000 tokens/minute and
+ * every extra README competes with the rest of the conversation. The model can
+ * still ask for more through `maxChars` (up to 50,000) when it needs detail.
+ */
+export const DEFAULT_README_MAX_CHARS = 4_000;
 
 /**
  * If truncation left an unpaired UTF-16 high surrogate as the last code
