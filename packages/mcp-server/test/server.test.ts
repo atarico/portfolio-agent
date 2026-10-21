@@ -142,6 +142,13 @@ describe("portfolio MCP server", () => {
     });
   });
 
+  it("list_contributions adds the CV's role at an organization with no public pull requests", async () => {
+    const result = await client.callTool({ name: "list_contributions", arguments: { project: "github" } });
+
+    expect(result.structuredContent).toMatchObject({ total: 0 });
+    expect((result.structuredContent as { note: string }).note).toContain("Mascot at GitHub");
+  });
+
   it("get_profile requires at least one section", async () => {
     for (const sections of [undefined, []]) {
       const result = await client.callTool({ name: "get_profile", arguments: { sections } });

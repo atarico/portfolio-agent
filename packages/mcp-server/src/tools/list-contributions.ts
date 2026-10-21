@@ -1,4 +1,5 @@
 import type { GitHubPort, PrivateContributionCount, PullRequestState } from "../ports/github.ts";
+import { ownedProfile, type Profile, type ProfileExperience } from "../profile.ts";
 import { ToolInputError } from "../validation.ts";
 
 export interface ListContributionsInput {
@@ -66,12 +67,28 @@ const privateCountSentence = ({ count, from, to }: PrivateContributionCount) =>
 /**
  * For a named project with no public match, the result answers the question
  * itself: the owner wants "private, cannot be shown", and nothing in it may read
- * as evidence that no contribution exists.
+ * as evidence that no contribution exists. When their CV lists a role at that
+ * organization, the answer says so too ("private" alone read as a denial), and
+ * the private count is left out: next to the role, the model presented it as
+ * evidence of work for that organization, which GitHub does not say.
  */
-const unmatchedProjectNote = (project: string, privateCount: PrivateContributionCount | null) =>
-  `Contributions to private repositories cannot be shown, and any to "${project}" would be private. ` +
-  "Answer exactly that for this project." +
-  (privateCount ? ` ${privateCountSentence(privateCount)}` : "");
+const unmatchedProjectNote = (
+  project: string,
+  privateCount: PrivateContributionCount | null,
+  cvRoles: readonly ProfileExperience[],
+) => {
+  const cannotBeShown = `Contributions to private repositories cannot be shown, and any to "${project}" would be private.`;
+  if (cvRoles.length > 0) {
+    return (
+      `${cannotBeShown} Besides, their CV lists ${cvRoles.map(describeRole).join("; ")}. ` +
+      "Answer in the question's language with these two facts, in this order and nothing else: that contributions to private " +
+      "repositories cannot be shown (not that none are visible), then the role, attributed to their CV."
+    );
+  }
+  return `${cannotBeShown} Answer exactly that for this project.` + (privateCount ? ` ${privateCountSentence(privateCount)}` : "");
+};
+
+const describeRole = ({ role, organization, period }: ProfileExperience) => `${role} at ${organization} (${period})`;
 
 /** An organization or repository name, optionally `owner/name`: what GitHub allows in either. */
 const PROJECT_PATTERN = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9._-]+)?$/;
@@ -80,10 +97,12 @@ const PROJECT_PATTERN = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9._-]+)?$/;
  * The owner's contributions to repositories it does not own: open source
  * projects, organizations and teammates' repos. Grouped by repository so the
  * model can say "3 pull requests to gentle-ai, 1 merged" without counting.
+ * `profile` (their CV) is only read for a named project with no public match.
  */
 export async function listContributions(
   github: GitHubPort,
   { owner, project, limit = DEFAULT_CONTRIBUTION_LIMIT }: ListContributionsInput,
+  profile?: Profile,
 ): Promise<ListContributionsResult> {
   if (limit < 1) {
     throw new ToolInputError(`Invalid limit: ${limit}. Must be a positive number.`);
@@ -118,12 +137,27 @@ export async function listContributions(
     ...(privateCount ? { privateContributions: privateCount } : {}),
     note:
       filter !== undefined && all.length === 0
-        ? unmatchedProjectNote(filter, privateCount)
+        ? unmatchedProjectNote(filter, privateCount, cvRolesAt(profile, owner, filter))
         : privateCount
           ? `${PUBLIC_ONLY_NOTE} ${privateCountSentence(privateCount)}`
           : PUBLIC_ONLY_NOTE,
   };
 }
+
+/**
+ * Roles the owner's CV lists at the organization a project filter names:
+ * "kreva", "kreva-estudio" and "kreva/web" all name "Kreva Estudio".
+ */
+function cvRolesAt(profile: Profile | undefined, owner: string, project: string): ProfileExperience[] {
+  const name = lettersAndDigits(project.split("/")[0]!);
+  return (
+    ownedProfile(profile, owner)?.experience.filter(({ organization }) =>
+      lettersAndDigits(organization).includes(name),
+    ) ?? []
+  );
+}
+
+const lettersAndDigits = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 function normalizeProject(raw: string): string {
   const project = raw.trim().toLowerCase();

@@ -4,6 +4,7 @@ import type { PullRequestSummary } from "../../src/ports/github.ts";
 import { listContributions } from "../../src/tools/list-contributions.ts";
 import { ToolInputError } from "../../src/validation.ts";
 import { FakeGitHub } from "../fake-github.ts";
+import { octocatProfile } from "../fake-profile.ts";
 
 const pr = (overrides: Partial<PullRequestSummary> & { repo: string; number: number }): PullRequestSummary => ({
   title: `PR ${overrides.number}`,
@@ -66,6 +67,32 @@ describe("listContributions", () => {
     expect(result.total).toBe(0);
     expect(result.note).toMatch(/private repositories cannot be shown/i);
     expect(result.note).not.toMatch(/\bnone\b|no contributions/i);
+  });
+
+  it("adds what the CV says about the organization an unmatched project names", async () => {
+    // "Private, cannot be shown" alone read as a denial for a company the owner
+    // works at, while their CV says so. The owner's ask: add what the CV says.
+    for (const project of ["github", "github/docs"]) {
+      const result = await listContributions(github, { owner: "octocat", project }, octocatProfile);
+
+      expect(result.note, project).toMatch(/private repositories cannot be shown/i);
+      expect(result.note, project).toContain("their CV lists Mascot at GitHub (2008 – present)");
+      // Observed: given the private count next to the role, the model called the
+      // role "backed by their private activity", tying the count to the company.
+      expect(result.note, project).not.toMatch(/741/);
+    }
+  });
+
+  it("adds nothing from the CV when it lists no role at that organization", async () => {
+    const result = await listContributions(github, { owner: "octocat", project: "kreva" }, octocatProfile);
+
+    expect(result.note).not.toMatch(/\bCV\b/);
+  });
+
+  it("never presents someone else's CV as the owner's", async () => {
+    const result = await listContributions(github, { owner: "mallory", project: "github" }, octocatProfile);
+
+    expect(result.note).not.toMatch(/\bCV\b/);
   });
 
   it("rejects a project filter that is empty or not a plausible owner/name", async () => {
