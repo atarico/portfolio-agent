@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GitHubPort } from "../src/ports/github.ts";
 import { createPortfolioMcpServer } from "../src/server.ts";
 import { FakeGitHub, repo } from "./fake-github.ts";
+import { octocatProfile } from "./fake-profile.ts";
 
 const github = new FakeGitHub({
   repos: [repo({ name: "portfolio", language: "Astro" }), repo({ name: "fork", isFork: true })],
@@ -16,7 +17,7 @@ const client = new Client({ name: "test-client", version: "0.0.0" });
 
 beforeAll(async () => {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createPortfolioMcpServer({ github, owner: "octocat" });
+  const server = createPortfolioMcpServer({ github, owner: "octocat", profile: octocatProfile });
   await server.connect(serverTransport);
   await client.connect(clientTransport);
 });
@@ -26,10 +27,16 @@ afterAll(async () => {
 });
 
 describe("portfolio MCP server", () => {
-  it("exposes exactly the four portfolio tools", async () => {
+  it("exposes exactly the five portfolio tools", async () => {
     const { tools } = await client.listTools();
 
-    expect(tools.map((t) => t.name).sort()).toEqual(["detect_stack", "get_readme", "list_contributions", "list_repos"]);
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "detect_stack",
+      "get_profile",
+      "get_readme",
+      "list_contributions",
+      "list_repos",
+    ]);
     for (const tool of tools) {
       expect(tool.description).toBeTruthy();
     }
@@ -97,6 +104,50 @@ describe("portfolio MCP server", () => {
     const result = await client.callTool({ name: "detect_stack", arguments: { repo: "portfolio" } });
 
     expect(result.structuredContent).toMatchObject({ runtime: "node", frameworks: ["Astro"] });
+  });
+
+  it("get_profile returns the requested sections of the configured owner's profile", async () => {
+    const result = await client.callTool({ name: "get_profile", arguments: { sections: ["projects"] } });
+
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toEqual({
+      owner: "octocat",
+      found: true,
+      name: "The Octocat",
+      sources: octocatProfile.sources,
+      projects: octocatProfile.projects,
+    });
+  });
+
+  it("get_profile rejects a section it does not have", async () => {
+    const result = await client.callTool({ name: "get_profile", arguments: { sections: ["salary"] } });
+
+    expect(result.isError).toBe(true);
+  });
+
+  it("get_profile reads every section a broad question needs in one call", async () => {
+    const result = await client.callTool({
+      name: "get_profile",
+      arguments: { sections: ["overview", "experience", "projects", "skills", "education"] },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({
+      found: true,
+      headline: octocatProfile.headline,
+      experience: octocatProfile.experience,
+      projects: octocatProfile.projects,
+      skills: octocatProfile.skills,
+      education: octocatProfile.education,
+    });
+  });
+
+  it("get_profile requires at least one section", async () => {
+    for (const sections of [undefined, []]) {
+      const result = await client.callTool({ name: "get_profile", arguments: { sections } });
+
+      expect(result.isError, JSON.stringify(sections)).toBe(true);
+    }
   });
 
   it("rejects invalid repo names before hitting GitHub", async () => {

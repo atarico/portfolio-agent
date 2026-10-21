@@ -2,6 +2,8 @@ import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import type { GitHubPort } from "./ports/github.ts";
+import type { Profile } from "./profile.ts";
+import { PROFILE_SECTIONS, getProfile } from "./tools/get-profile.ts";
 import { DEFAULT_README_MAX_CHARS, getReadme } from "./tools/get-readme.ts";
 import { detectStack } from "./tools/detect-stack.ts";
 import { DEFAULT_CONTRIBUTION_LIMIT, listContributions } from "./tools/list-contributions.ts";
@@ -19,6 +21,12 @@ export interface PortfolioServerDeps {
    * account.
    */
   owner: string;
+  /**
+   * What the owner's CV and portfolio site say, served by get_profile. A profile
+   * whose login is not the owner's is ignored, so it can never be presented as
+   * someone else's.
+   */
+  profile?: Profile;
 }
 
 const repoField = z.string().describe("Repository name, without the owner prefix.");
@@ -26,7 +34,7 @@ const repoField = z.string().describe("Repository name, without the owner prefix
 /** Registers the portfolio tools on an existing server (useful for embedding). */
 export function registerPortfolioTools(server: McpServer, deps: PortfolioServerDeps): void {
   const owner = validateOwner(deps.owner);
-  const { github } = deps;
+  const { github, profile } = deps;
 
   server.registerTool(
     "list_repos",
@@ -110,6 +118,27 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
     },
     async ({ project, limit }) =>
       run("list_contributions", () => listContributions(github, { owner, project, limit })),
+  );
+
+  server.registerTool(
+    "get_profile",
+    {
+      title: "Get profile",
+      description: `Read what ${owner}'s CV and portfolio site say: summary, work experience, projects, skills, education, languages and links. Use it for questions about their career, roles, studies or skills, and for projects that are not on GitHub. Read only the sections the question needs.`,
+      // No limit on how many sections: Groq checks a tool call against this schema
+      // after generating it and fails the whole answer on a mismatch, so a broad
+      // question ("tell me about them") asking for four sections would end in an error.
+      inputSchema: z.object({
+        sections: z
+          .array(z.enum(PROFILE_SECTIONS))
+          .min(1)
+          .describe(
+            "The sections the question needs, all in one call: overview (summary, location, links, languages), experience, projects, skills, education (with certifications). For a technology, skills and projects.",
+          ),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ sections }) => run("get_profile", async () => getProfile(profile, { owner, sections })),
   );
 }
 

@@ -1,6 +1,6 @@
 import { createMCPClient } from "@ai-sdk/mcp";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
-import { type GitHubPort, createPortfolioMcpServer } from "@portfolio-agent/mcp-server";
+import { DEFAULT_PROFILE, type GitHubPort, createPortfolioMcpServer } from "@portfolio-agent/mcp-server";
 
 import type { Env } from "@/lib/http/env";
 
@@ -79,6 +79,7 @@ export async function connectPortfolioMcp({
   const server = createPortfolioMcpServer({
     github: github ?? sharedGitHubPort(env),
     owner,
+    profile: DEFAULT_PROFILE,
   });
   await server.connect(serverTransport);
 

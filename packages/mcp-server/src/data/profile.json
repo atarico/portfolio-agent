@@ -1,0 +1,207 @@
+{
+  "github": "atarico",
+  "name": "Agustín Tarico",
+  "headline": "Full Stack Developer · 4 años de experiencia",
+  "location": "San Nicolás, Buenos Aires, Argentina",
+  "availability": "Remoto, híbrido o relocación",
+  "summary": [
+    "Full Stack Developer con 4 años de experiencia construyendo aplicaciones web en producción con TypeScript, React/Next.js, Node.js y PostgreSQL. Puse en producción en 2 meses la plataforma de gestión de un centro cultural, llevé un SaaS multi-tenant a suscripciones pagas con aislamiento de datos por Row-Level Security y desplegué en AWS una plataforma serverless con Terraform. Trabajo con TDD y CI/CD, y convierto requerimientos de clientes no técnicos en sistemas que se usan todos los días.",
+    "Full Stack Developer con 4 años de experiencia y foco en agentes de IA y seguridad de aplicaciones. Construí un agente con servidor MCP propio y proveedor de LLM intercambiable, y Skills Inspector, un SAST open source que detecta 75 de 75 casos de un benchmark de extensiones maliciosas con 111 reglas mapeadas a OWASP Top 10 y CWE. Audité un sitio WordPress/WooCommerce con 87 hallazgos, 4 críticos. Desarrollo en TypeScript y Python con TDD.",
+    "Soy Full Stack Developer: construyo aplicaciones web con TypeScript, React/Next.js, Node.js y PostgreSQL, y automatizo procesos con Python, FastAPI, webhooks y GitHub Actions. Trabajo con IA usando agentes, MCPs, skills, LLMs y RAG. Curso Ingeniería en Sistemas en la UTN, donde fui profesor titular de Programación I a IV.",
+    "Dar clases me entrenó para explicar cosas complejas de manera simple. Lo que más disfruto es llevar ideas a producción. Programo porque me encanta."
+  ],
+  "links": {
+    "github": "https://github.com/atarico",
+    "linkedin": "https://linkedin.com/in/agustin-tarico",
+    "portfolio": "https://portfolio-atarico.vercel.app"
+  },
+  "contact": "LinkedIn, o la sección Contacto del portfolio (email, WhatsApp y formulario). Respondo en menos de 24hs.",
+  "experience": [
+    {
+      "role": "Desarrollador Full Stack y Consultor en Sistemas",
+      "organization": "Kreva Estudio",
+      "location": "Argentina",
+      "period": "03/2026 – actualidad",
+      "description": "Estudio de desarrollo de software",
+      "stack": ["Next.js", "React", "TypeScript", "Supabase", "NestJS", "Prisma"],
+      "highlights": [
+        "Puse en producción en 2 meses la plataforma de gestión del centro cultural Estación Primera (eventos, entradas con reparto por artista, punto de venta de barra y liquidación por evento), cubriendo relevamiento, desarrollo y despliegue con Next.js 16, React 19 y Supabase.",
+        "Aseguré la operación diaria de 3 roles (administración, entradas y barra) implementando RBAC en el middleware de Next.js y Server Actions autenticadas, y habilité demos comerciales sin tocar producción con un entorno de demo aislado por navegador.",
+        "Detecté 87 hallazgos de seguridad, 4 de ellos críticos, auditando un sitio WordPress/WooCommerce, y los convertí en un plan de migración a un sistema a medida con NestJS, Prisma y React.",
+        "Transformé los requerimientos de 2 clientes no técnicos en propuestas y especificaciones ejecutables mediante relevamiento e ingeniería de requerimientos."
+      ]
+    },
+    {
+      "role": "Desarrollador Full Stack Independiente",
+      "organization": "Freelance",
+      "location": "San Nicolás, Buenos Aires",
+      "period": "2022 – actualidad",
+      "description": "Sitios web para comercios (2022–2023) · aplicaciones de gestión, SaaS y open source (2024–actualidad)",
+      "stack": ["TypeScript", "React", "Express", "Prisma", "Astro", "GitHub Actions"],
+      "highlights": [
+        "Entregué sistemas a medida para comercios locales, desde landings hasta la gestión de una cafetería con menú por QR y tarjeta de fidelización (React, Express, Prisma), gestionando relevamiento, presupuesto, desarrollo y entrega.",
+        "Entregué el sitio institucional de Organización Duin, productor asesor de Sancor Seguros desde 1970, aprobado por el cliente, con Astro, captación de consultas por WhatsApp y paridad visual verificada con Playwright.",
+        "Mantengo mis productos en producción con TDD, pipelines de CI/CD en GitHub Actions y despliegue continuo en Vercel y AWS."
+      ]
+    },
+    {
+      "role": "Profesor Titular, Programación I a IV",
+      "organization": "UTN Facultad Regional San Nicolás",
+      "location": "San Nicolás, Buenos Aires",
+      "period": "03/2024 – 02/2026",
+      "stack": ["C#", "ASP.NET Core", "JavaScript", "React", "Node.js", "MongoDB"],
+      "highlights": [
+        "Formé a más de 30 estudiantes por cohorte en desarrollo web y backend (C#, ASP.NET Core, JavaScript, React) diseñando el plan de estudios, los proyectos prácticos y la evaluación individual de 4 materias correlativas.",
+        "Construí las herramientas de la cátedra, una plataforma de ejercicios de lógica (React, Node.js, MongoDB) y la app de préstamo de llaves de la facultad, y publiqué el material en repositorios abiertos con 72 estrellas en GitHub."
+      ]
+    },
+    {
+      "role": "Desarrollador Mobile (React Native)",
+      "organization": "Kiura Software",
+      "location": "Bogotá, Colombia (remoto)",
+      "period": "04/2024 – 07/2024",
+      "stack": ["React Native", "Expo", "REST APIs", "Scrum"],
+      "highlights": [
+        "Entregué pantallas y funcionalidades de apps iOS y Android con React Native y Expo en sprints Scrum de 2 semanas, integrando APIs REST, tras ingresar por prueba técnica; revisé los pull requests del equipo en code review entre pares."
+      ]
+    },
+    {
+      "role": "Profesor de Desarrollo Web y React",
+      "organization": "Argentina Programa 4.0",
+      "period": "11/2023 – 01/2024",
+      "stack": ["HTML", "CSS", "JavaScript", "React"],
+      "highlights": [
+        "Capacité a más de 80 jóvenes en HTML, CSS, JavaScript y React mediante cursos intensivos basados en proyectos reales."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Turnos Multi-tenant",
+      "tagline": "SaaS de gestión de turnos",
+      "status": "Producción",
+      "url": "https://github.com/atarico/turnos-multi-tenant",
+      "demo": "https://multi-turnos.vercel.app",
+      "stack": ["Next.js 16", "React 19", "TypeScript", "Supabase (PostgreSQL + RLS)", "Vitest"],
+      "highlights": [
+        "Moneticé el producto con suscripciones de Mercado Pago (webhook en producción), topes por plan y panel de superadministración, sobre arquitectura hexagonal y 1.079 tests en CI.",
+        "Aislé los datos de cada tenant en la base de datos con políticas Row-Level Security, RPCs SECURITY DEFINER y grants explícitos sobre 26 migraciones SQL versionadas.",
+        "Eliminé la doble reserva y las inconsistencias de precio implementando advisory locks de PostgreSQL, una máquina de estados del turno y congelamiento de precio al reservar."
+      ]
+    },
+    {
+      "name": "CSV Ingestion Pipeline",
+      "tagline": "procesamiento asíncrono con worker y colas",
+      "url": "https://github.com/atarico/csv-ingestion-pipeline",
+      "stack": ["TypeScript", "Next.js 16", "Fastify", "PostgreSQL", "Prisma", "AWS SDK (S3, SQS)", "Docker Compose", "LocalStack", "GitHub Actions", "Playwright"],
+      "highlights": [
+        "Construí un pipeline asíncrono de ingesta de CSV que separa la API del procesamiento en segundo plano: la API en Fastify guarda el archivo en S3, registra la carga en PostgreSQL y publica un evento en SQS que consume un worker dedicado, mientras la UI en Next.js muestra el progreso y los errores por fila (50.000 filas en unos 11 segundos).",
+        "Hice el procesamiento confiable con visibility timeout, reintentos con backoff exponencial y jitter, cola de errores (DLQ) a los 3 intentos, inserciones idempotentes y apagado ordenado, sobre DDD, CQRS y Clean Architecture, con 393 tests unitarios, de integración y de frontend, E2E con Playwright, 86 % de cobertura del backend y CI en 3 jobs."
+      ]
+    },
+    {
+      "name": "Portfolio Agent",
+      "tagline": "agente de IA con servidor MCP propio",
+      "status": "Producción",
+      "url": "https://github.com/atarico/portfolio-agent",
+      "stack": ["Next.js 16", "TypeScript", "Vercel AI SDK", "MCP", "Zod", "Vitest"],
+      "highlights": [
+        "Construí un agente de IA que responde sobre un portfolio de GitHub consultando datos en vivo a través de un servidor MCP propio (hexagonal, expuesto por HTTP y stdio), con el proveedor de LLM (Gemini o Groq) configurable sin tocar código.",
+        "Protegí los endpoints públicos con rate limiting por IP, autenticación que se cierra por defecto en producción y validación de payloads con Zod, cubiertos por 137 tests que corren sin red."
+      ]
+    },
+    {
+      "name": "Skills Inspector",
+      "tagline": "analizador estático (SAST) open source para extensiones de agentes de IA",
+      "status": "Producción",
+      "url": "https://github.com/atarico/skills-inspector",
+      "stack": ["Python (solo librería estándar)", "GitHub Actions"],
+      "summary": "Herramienta open source que audita extensiones de agentes de IA (Claude Code, Codex, opencode) antes de instalarlas: analiza el código de forma estática, rastrea el flujo de datos hasta detectar secretos que salen a la red y reporta las capacidades que la descripción de la extensión nunca menciona. Detectó 75 de 75 casos del benchmark de extensiones maliciosas con un motor de 111 reglas mapeadas a OWASP Top 10 y CWE, 596 tests y cero dependencias externas.",
+      "highlights": [
+        "Llevé a cero los falsos positivos en el 76 % de 76 extensiones reales calibrando las reglas, con 596 tests de invariantes, 28 de 28 casos de fuzzing sin cuelgues y cero dependencias externas."
+      ]
+    },
+    {
+      "name": "Estación Primera — plataforma de gestión",
+      "status": "Producción",
+      "demo": "https://ep-cantina-entradas.vercel.app",
+      "stack": ["Next.js 16", "React 19", "TypeScript", "Supabase"],
+      "summary": "Plataforma de gestión del centro cultural Estación Primera, construida en Kreva Estudio y puesta en producción en 2 meses: eventos, entradas con reparto por artista, punto de venta de barra y liquidación por evento, con RBAC para 3 roles y un entorno de demo aislado por navegador."
+    },
+    {
+      "name": "Farmacias de turno San Nicolás",
+      "status": "Producción",
+      "demo": "https://farmaciasdeturnosn.com",
+      "stack": ["Astro", "React", "Leaflet", "SEO", "Vercel"],
+      "summary": "Servicio público gratuito que centraliza 72 farmacias y 12 rondas de turnos, antes dispersas en carteles y redes, con mapa por geolocalización y cálculo automático del turno vigente. Posicionado por encima del sitio preexistente en 3 de 4 búsquedas locales medidas gracias a SEO técnico y datos estructurados."
+    },
+    {
+      "name": "Vidriera",
+      "status": "Producción",
+      "url": "https://github.com/atarico/vidriera",
+      "stack": ["TypeScript", "AWS", "Terraform", "Astro", "React", "Algolia", "Sanity"],
+      "summary": "Catálogo online para comercios chicos con pedido por WhatsApp, alternativa a Tienda Nube o la comisión de Mercado Libre, con un costo de operación de USD 0 a 1 por mes. Tienda estática en S3 + CloudFront, infraestructura en Terraform y pipeline de indexado orientado a eventos (Lambda, SQS, DLQ), con arquitectura hexagonal y 209 tests."
+    },
+    {
+      "name": "fix-cv-find-job-skill",
+      "status": "Open source",
+      "url": "https://github.com/atarico/fix-cv-find-job-skill",
+      "stack": ["Claude Code", "Agentes de IA", "Skills", "Markdown"],
+      "summary": "Skill open source para Claude que audita un CV como un reclutador, lo reescribe listo para ATS, busca ofertas en los portales que usa la persona, se postula por ella, alinea LinkedIn y clasifica las respuestas del inbox. Funciona para cualquier industria y nunca decide por el usuario lo que le corresponde decidir. Versión 0.4.0."
+    },
+    {
+      "name": "Bot de turnos por WhatsApp",
+      "status": "Open source",
+      "url": "https://github.com/atarico/bot-turnos",
+      "stack": ["Python", "FastAPI", "Docker", "Google Calendar API", "WhatsApp Cloud API"],
+      "summary": "Bot multi-tenant de WhatsApp que responde solo, le dice al cliente si tiene un turno y lo guía para reservarlo, usando el Google Calendar del negocio como única fuente de verdad. Un solo despliegue atiende a varios negocios y un simulador local reproduce el payload exacto de la Cloud API de Meta. 64 tests."
+    },
+    {
+      "name": "Organización Duin",
+      "status": "Producción",
+      "demo": "https://org-duin-sancor-seg.vercel.app",
+      "stack": ["Astro", "CSS", "JavaScript", "Vercel"],
+      "summary": "Landing page para Organización Duin, agencia oficial del Grupo Sancor Seguros en San Nicolás. Sitio de una página con tarjetas de servicios apiladas, llamadas a la acción directas por WhatsApp y foco en SEO y accesibilidad. Construida con Astro puro, sin frameworks."
+    },
+    {
+      "name": "Kinesio App",
+      "status": "Producción",
+      "stack": ["Next.js", "Supabase"],
+      "summary": "SaaS para consultorios de kinesiología en producción desde 04/2026."
+    },
+    {
+      "name": "Sistema de Proveedores",
+      "stack": ["Node.js", "PostgreSQL"],
+      "summary": "1.500+ tests."
+    }
+  ],
+  "skills": {
+    "Lenguajes": ["TypeScript", "JavaScript (ES6+)", "Python", "SQL", "C# (ASP.NET Core)"],
+    "Frontend": ["React 19", "Next.js 16 (App Router, Server Actions, SSR)", "React Native (Expo)", "Astro", "Tailwind CSS", "TanStack Query", "PWA", "SEO técnico"],
+    "Backend y bases de datos": ["Node.js", "Express", "Fastify", "NestJS", "FastAPI", "APIs REST", "colas y workers asíncronos (SQS, reintentos, DLQ)", "WebSockets (Socket.io)", "webhooks", "PostgreSQL", "Supabase", "Prisma ORM", "MongoDB", "Row-Level Security", "JWT", "OAuth", "RBAC", "Mercado Pago"],
+    "Cloud y DevOps": ["AWS (Lambda, SQS, ECS Fargate, S3, CloudFront)", "Terraform", "Docker", "Docker Compose", "LocalStack", "GitHub Actions (CI/CD)", "Vercel", "Railway", "Cloudflare R2", "Linux"],
+    "Testing": ["TDD", "Vitest", "Testing Library", "Playwright (E2E)"],
+    "IA, seguridad y métodos": ["agentes de IA", "MCP", "Vercel AI SDK", "LLMs", "RAG", "OWASP Top 10", "CWE", "SAST", "DDD", "CQRS", "arquitectura hexagonal", "Clean Architecture", "SOLID", "Scrum", "code review", "ingeniería de requerimientos"]
+  },
+  "education": [
+    {
+      "title": "Ingeniería en Sistemas de Información",
+      "institution": "UTN Facultad Regional San Nicolás",
+      "status": "en curso (2.º año)"
+    }
+  ],
+  "certifications": [
+    "Full-Stack Web Developer — Digital House",
+    "Lógica de Programación — Oracle Next Education (ONE)",
+    "Desarrollo Web Estático — CoderHouse"
+  ],
+  "languages": [
+    "Español nativo",
+    "Inglés B1 intermedio (EF SET English Certificate), lectura fluida de documentación técnica"
+  ],
+  "sources": [
+    { "name": "CV Full Stack (PDF)", "date": "2026-10-19" },
+    { "name": "CV IA y Agentes (PDF)", "date": "2026-10-19" },
+    { "name": "Portfolio", "url": "https://portfolio-atarico.vercel.app", "date": "2026-10-21" }
+  ]
+}
