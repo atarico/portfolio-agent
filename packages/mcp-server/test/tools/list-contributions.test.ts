@@ -41,6 +41,37 @@ describe("listContributions", () => {
     expect(result.merged).toBe(2);
   });
 
+  it("counts each repository's pull requests by state, so a yes/no question is read off, not counted", async () => {
+    const result = await listContributions(github, { owner: "octocat" });
+
+    expect(result.repositories[0]).toMatchObject({ repo: "acme/cli", merged: 1, open: 1, closed: 1 });
+    expect(result.repositories[1]).toMatchObject({ repo: "friend/app", merged: 1, open: 0, closed: 0 });
+  });
+
+  it("narrows to one project or organization when asked about it, matching owner/name case-insensitively", async () => {
+    const result = await listContributions(github, { owner: "octocat", project: "ACME" });
+
+    expect(result.project).toBe("acme");
+    expect(result.repositories.map((r) => r.repo)).toEqual(["acme/cli"]);
+    expect(result.total).toBe(3);
+    expect(result.merged).toBe(1);
+  });
+
+  it("answers an unmatched project with 'private, cannot be shown', never with 'there are none'", async () => {
+    // The owner's ask: contributions to a company's private repos are simply not
+    // shown. The result must not read as evidence that they do not exist.
+    const result = await listContributions(github, { owner: "octocat", project: "kreva" });
+
+    expect(result.total).toBe(0);
+    expect(result.note).toMatch(/private repositories cannot be shown/i);
+    expect(result.note).not.toMatch(/\bnone\b|no contributions/i);
+  });
+
+  it("rejects a project filter that is empty or not a plausible owner/name", async () => {
+    await expect(listContributions(github, { owner: "octocat", project: "  " })).rejects.toBeInstanceOf(ToolInputError);
+    await expect(listContributions(github, { owner: "octocat", project: "a b" })).rejects.toBeInstanceOf(ToolInputError);
+  });
+
   it("keeps each pull request's state, approval and link", async () => {
     const result = await listContributions(github, { owner: "octocat" });
 

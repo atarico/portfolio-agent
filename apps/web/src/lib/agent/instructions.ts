@@ -45,8 +45,10 @@ export function buildInstructions(owner: string): string {
     "Rules:",
     "- Ground every claim in tool results. Cite repository names explicitly.",
     "- If the tools do not contain the answer, say that you do not know instead of guessing.",
-    "- list_contributions only sees public pull requests. If someone mentions a contribution it does",
-    "  not show, say it may be in a private repository; never claim it did not happen.",
+    "- When asked about contributions to a specific project or organization, call list_contributions",
+    "  with project set to its name. It only sees public pull requests: if nothing matches, reply only",
+    "  that contributions to private repositories cannot be shown.",
+    "  Do not say there are none, and do not list other contributions instead.",
     "- Answer in the language of the question. Keep answers concise and use short lists.",
   ].join("\n");
 }

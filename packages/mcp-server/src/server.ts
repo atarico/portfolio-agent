@@ -89,8 +89,15 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
     "list_contributions",
     {
       title: "List contributions",
-      description: `List the pull requests ${owner} opened in repositories they do not own (open source projects, organizations, teammates' repos), grouped by repository, with whether each was merged, closed or is still open and whether it was approved. Use it for questions about collaborations, contributions or teamwork. Public pull requests only.`,
+      description: `List the pull requests ${owner} opened in repositories they do not own (open source projects, organizations, teammates' repos), grouped by repository, with whether each was merged, closed or is still open and whether it was approved. Use it for questions about collaborations, contributions or teamwork; pass project when the question names one. Public pull requests only.`,
       inputSchema: z.object({
+        project: z
+          .string()
+          .max(100)
+          .optional()
+          .describe(
+            "Only pull requests to repositories whose owner/name contains this text, e.g. an organization or project the question names.",
+          ),
         limit: z
           .number()
           .int()
@@ -101,7 +108,8 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
       }),
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    async ({ limit }) => run("list_contributions", () => listContributions(github, { owner, limit })),
+    async ({ project, limit }) =>
+      run("list_contributions", () => listContributions(github, { owner, project, limit })),
   );
 }
 
