@@ -29,7 +29,8 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 
 - **Why:** free tiers fail in ordinary ways. We measured a 503 "high demand", a 429 when the per-minute token budget runs out, and requests that sit in a queue for 20-40 s. `createFallbackModel` implements the AI SDK `LanguageModelV4` interface, so `streamText` sees one model, and each step can move to the next model in the chain.
 - **Rules:**
-  - Only failures before the first output fail over. A retry after output started would duplicate it.
+  - Only failures before the first output (text or a tool call) fail over. A retry after output started would duplicate it.
+  - Reasoning is held back until that output. Groq checks a tool call against the tool's schema only after the model has reasoned, and reports a mismatch (an invented tool name, a value out of range) as a stream error at that point. Held back, it still fails over to the next model instead of ending the answer. The first-chunk timeout still stops counting at the model's first part, reasoning included, since a model that has started is not queued.
   - The user's Stop never counts as a model failure.
   - The model that last succeeded serves the next steps of the same answer.
 - **Cost:**

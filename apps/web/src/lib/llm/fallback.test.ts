@@ -21,6 +21,11 @@ const answer = (text: string): StreamPart[] => [
   { type: "text-delta", id: "t", delta: text } as StreamPart,
   { type: "text-end", id: "t" } as StreamPart,
 ];
+const reasoning = (text: string): StreamPart[] => [
+  { type: "reasoning-start", id: "r" } as StreamPart,
+  { type: "reasoning-delta", id: "r", delta: text } as StreamPart,
+  { type: "reasoning-end", id: "r" } as StreamPart,
+];
 
 function streamOf(parts: StreamPart[], { close = true } = {}): ReadableStream<StreamPart> {
   return new ReadableStream({
@@ -132,6 +137,53 @@ describe("createFallbackModel", () => {
     expect(primary.calls[0]?.abortSignal?.aborted).toBe(true);
   });
 
+  it("falls back when the first model fails after reasoning, before any text or tool call", async () => {
+    // Groq checks a tool call against the tool's schema only after the model has
+    // reasoned, and reports a mismatch as an error part at that point.
+    const rejected = { type: "error", error: new Error("Tool call validation failed") } as StreamPart;
+    const primary = fakeModel("primary", () => ({ stream: streamOf([START, ...reasoning("call a tool"), rejected]) }));
+
+    const { stream } = await createFallbackModel([primary, answering("secondary")]).doStream(CALL);
+
+    const parts = await readAll(stream);
+    expect(textOf(parts)).toBe("from secondary");
+    // The abandoned attempt's reasoning never reaches the answer.
+    expect(parts.filter((part) => part.type.startsWith("reasoning"))).toEqual([]);
+  });
+
+  it("passes a model's reasoning through, in order, once its answer starts", async () => {
+    const [start, ...text] = answer("from primary");
+    const primary = fakeModel("primary", () => ({ stream: streamOf([start!, ...reasoning("thinking"), ...text]) }));
+
+    const { stream } = await createFallbackModel([primary, answering("secondary")]).doStream(CALL);
+
+    expect(await readAll(stream)).toEqual([start, served("primary"), ...reasoning("thinking"), ...text]);
+  });
+
+  it("gives a model that has started reasoning the time it needs, past the first-chunk budget", async () => {
+    const [start, ...text] = answer("from primary");
+    const [reasoningStart, ...restOfReasoning] = reasoning("thinking");
+    const primary = fakeModel("primary", () => ({
+      stream: new ReadableStream<StreamPart>({
+        start(controller) {
+          controller.enqueue(start!);
+          controller.enqueue(reasoningStart!);
+          setTimeout(() => {
+            for (const part of [...restOfReasoning, ...text]) controller.enqueue(part);
+            controller.close();
+          }, 60);
+        },
+      }),
+    }));
+    const secondary = answering("secondary");
+
+    const model = createFallbackModel([primary, secondary], { firstChunkTimeoutMs: 20 });
+    const { stream } = await model.doStream(CALL);
+
+    expect(textOf(await readAll(stream))).toBe("from primary");
+    expect(secondary.calls).toHaveLength(0);
+  });
+
   it("never turns the caller's abort (the Stop button) into a fallback", async () => {
     const caller = new AbortController();
     const primary = fakeModel("primary", () => {
@@ -176,6 +228,26 @@ describe("createFallbackModel", () => {
 
     const [start, ...rest] = answer("partial");
     expect(await readAll(stream)).toEqual([start, served("primary"), ...rest, midStreamError]);
+    expect(secondary.calls).toHaveLength(0);
+  });
+
+  it("does not retry an error that arrives after a tool call", async () => {
+    const toolCall = { type: "tool-call", toolCallId: "c1", toolName: "list_repos", input: "{}" } as StreamPart;
+    const midStreamError = { type: "error", error: new Error("connection reset") } as StreamPart;
+    const primary = fakeModel("primary", () => ({
+      stream: streamOf([START, ...reasoning("list them"), toolCall, midStreamError]),
+    }));
+    const secondary = answering("secondary");
+
+    const { stream } = await createFallbackModel([primary, secondary]).doStream(CALL);
+
+    expect(await readAll(stream)).toEqual([
+      START,
+      served("primary"),
+      ...reasoning("list them"),
+      toolCall,
+      midStreamError,
+    ]);
     expect(secondary.calls).toHaveLength(0);
   });
 
