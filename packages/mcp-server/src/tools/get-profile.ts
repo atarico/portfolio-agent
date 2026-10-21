@@ -1,4 +1,4 @@
-import type { Profile } from "../profile.ts";
+import { ownedProfile, type Profile } from "../profile.ts";
 import { ToolInputError } from "../validation.ts";
 
 /** Parts of a profile a caller can ask for, so a question reads only what it needs. */
@@ -39,11 +39,12 @@ export function getProfile(profile: Profile | undefined, { owner, sections = [] 
   if (unknown !== undefined) {
     throw new ToolInputError(`Unknown profile section "${unknown}". Use one of: ${PROFILE_SECTIONS.join(", ")}.`);
   }
-  if (!profile || profile.github.toLowerCase() !== owner.toLowerCase()) {
+  const owned = ownedProfile(profile, owner);
+  if (!owned) {
     return { owner, found: false, message: `No CV or portfolio data is published for ${owner}.` };
   }
 
-  const { github: _github, name, sources, ...facts } = profile;
+  const { github: _github, name, sources, ...facts } = owned;
   const picked =
     sections.length > 0
       ? Object.fromEntries(sections.flatMap((section) => SECTION_FIELDS[section]).map((field) => [field, facts[field]]))

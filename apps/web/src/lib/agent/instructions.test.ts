@@ -30,13 +30,15 @@ describe("buildInstructions", () => {
     expect(buildInstructions("octocat")).toContain(`at most ${MAX_AGENT_STEPS} turns`);
   });
 
-  it("answers a question about an unlisted project with 'private, cannot be shown' and nothing else", () => {
+  it("answers a question about an unlisted project with 'private, cannot be shown', plus what the CV says", () => {
     // Observed: asked about pull requests to a company's private repos, the model
     // opened with "there is no PR to that organization" and only then added the
-    // caveat, which reads as a denial. The owner's ask: say they are private and stop.
+    // caveat, which reads as a denial. The owner's ask: say they are private, and
+    // add what their CV says about that organization, nothing else.
     const instructions = buildInstructions("octocat");
 
     expect(instructions).toMatch(/private repositories cannot be shown/i);
+    expect(instructions).toMatch(/what their CV says about that\s+organization/i);
     expect(instructions).toMatch(/do not say there are none/i);
     expect(instructions).toMatch(/do not list other contributions instead/i);
     // The filter is what lets the tool itself return that answer for the project.

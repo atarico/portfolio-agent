@@ -22,9 +22,10 @@ export interface PortfolioServerDeps {
    */
   owner: string;
   /**
-   * What the owner's CV and portfolio site say, served by get_profile. A profile
-   * whose login is not the owner's is ignored, so it can never be presented as
-   * someone else's.
+   * What the owner's CV and portfolio site say, served by get_profile and quoted
+   * by list_contributions for an organization with no public pull requests. A
+   * profile whose login is not the owner's is ignored, so it can never be
+   * presented as someone else's.
    */
   profile?: Profile;
 }
@@ -117,7 +118,7 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ project, limit }) =>
-      run("list_contributions", () => listContributions(github, { owner, project, limit })),
+      run("list_contributions", () => listContributions(github, { owner, project, limit }, profile)),
   );
 
   server.registerTool(

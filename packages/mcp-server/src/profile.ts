@@ -62,6 +62,15 @@ export interface ProfileSource {
 }
 
 /**
+ * The profile if it belongs to `owner`, matched case-insensitively as GitHub
+ * logins are. One person's CV must never be presented as another's when the
+ * server runs for someone else.
+ */
+export function ownedProfile(profile: Profile | undefined, owner: string): Profile | undefined {
+  return profile?.github.toLowerCase() === owner.toLowerCase() ? profile : undefined;
+}
+
+/**
  * The default owner's profile, from their two CVs and their portfolio site.
  * To update it, edit src/data/profile.json; the type check rejects a field
  * with the wrong shape, and test/profile.test.ts keeps contact data out.
