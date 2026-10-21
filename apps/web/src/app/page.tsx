@@ -1,11 +1,11 @@
 import { resolveOwner } from "@portfolio-agent/mcp-server";
 
 import { Chat } from "@/components/chat/chat";
-import { providerNameForDisplay } from "@/lib/llm/provider";
+import { describeModelChain } from "@/lib/llm/provider";
 
 export default function HomePage() {
   const owner = resolveOwner(process.env);
-  const provider = providerNameForDisplay(process.env.LLM_PROVIDER);
+  const provider = describeModelChain(process.env);
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 sm:px-6">
