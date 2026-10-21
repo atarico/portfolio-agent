@@ -31,3 +31,17 @@ export function describeToolPart(part: MessagePart): ToolPartView | null {
     errorText: part.errorText,
   };
 }
+
+/**
+ * A tool's input as a one-line argument list, `repo: "portfolio-agent", maxChars: 2000`,
+ * shortened past `maxChars` so a trace line never wraps.
+ */
+export function formatToolArgs(input: unknown, maxChars = 60): string {
+  if (input === undefined || input === null) return "";
+  if (typeof input !== "object") return String(input);
+
+  const text = Object.entries(input)
+    .map(([name, value]) => `${name}: ${JSON.stringify(value)}`)
+    .join(", ");
+  return text.length > maxChars ? `${text.slice(0, maxChars - 1)}…` : text;
+}

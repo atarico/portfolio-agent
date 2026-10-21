@@ -27,16 +27,35 @@ export function MessageList({ messages, owner, status, onSuggestion }: MessageLi
   }
 
   return (
-    <ol className="flex flex-1 flex-col gap-4 overflow-y-auto px-1 py-6">
+    <ol className="flex flex-1 flex-col gap-8 py-8">
       {messages.map((message) => (
-        <li key={message.id}>
+        <li key={message.id} className="rise">
           <MessageBubble message={message} />
         </li>
       ))}
       {status === "submitted" ? (
-        <li className="px-4 text-sm text-zinc-500 dark:text-zinc-400">Thinking…</li>
+        <li className="rise">
+          <Working />
+        </li>
       ) : null}
       <div ref={bottomRef} />
     </ol>
+  );
+}
+
+/** Placeholder answer while the first model step is still deciding what to do. */
+function Working() {
+  return (
+    <div className="flex gap-3 sm:gap-4" role="status">
+      <span aria-hidden className="w-6 shrink-0 pt-0.5 font-display text-2xl leading-none text-ink-faint italic">
+        A.
+      </span>
+      <div className="flex-1 rounded-xl border border-rule bg-paper-raised px-4 py-4 sm:px-5">
+        <p className="font-mono text-[12px] text-ink-soft">Choosing which tools to call…</p>
+        <div aria-hidden className="mt-3 h-px overflow-hidden bg-rule">
+          <div className="scan h-px w-1/3 bg-signal" />
+        </div>
+      </div>
+    </div>
   );
 }

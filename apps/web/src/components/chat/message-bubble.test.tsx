@@ -45,9 +45,42 @@ describe("MessageBubble", () => {
     expect(container.textContent).toContain("gemini-3.6-flash · 2.4 s");
   });
 
+  it("names the model only once the answer has finished, not while it is still working", () => {
+    // The model id arrives with each step; the duration only with the end of the answer.
+    const { container } = render(<MessageBubble message={message("assistant", "Done.", { model: "gemini-3.6-flash" })} />);
+
+    expect(container.querySelector("footer")).toBeNull();
+  });
+
   it("shows no footer while the answer has no metadata yet", () => {
     const { container } = render(<MessageBubble message={message("assistant", "Done.")} />);
 
     expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it("collects consecutive tool calls into one trace, in the order they were made", () => {
+    const tool = (id: string, toolName: string) => ({
+      type: "dynamic-tool",
+      toolCallId: id,
+      toolName,
+      state: "output-available",
+      input: { limit: 5 },
+      output: {},
+    });
+    const answer = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [tool("1", "list_repos"), tool("2", "detect_stack"), { type: "text", text: "Two repos." }],
+    } as unknown as ChatMessage;
+
+    const { container } = render(<MessageBubble message={answer} />);
+
+    const traces = container.querySelectorAll("ol[aria-label]");
+    expect(traces).toHaveLength(1);
+    expect([...traces[0]!.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
+      expect.stringContaining("list_repos"),
+      expect.stringContaining("detect_stack"),
+    ]);
+    expect(container.textContent).toContain("Two repos.");
   });
 });

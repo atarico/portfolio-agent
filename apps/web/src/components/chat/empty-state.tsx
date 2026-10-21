@@ -1,38 +1,75 @@
+import type { CSSProperties } from "react";
+
 interface EmptyStateProps {
   owner: string;
   onPick: (text: string) => void;
 }
 
+/** Questions verified against the live agent; the tag says what each one shows off. */
 const SUGGESTIONS = [
-  "Which projects are the most recent?",
-  "What stack does the portfolio repo use?",
-  "Which repositories use Supabase?",
-  "Summarize the README of the biggest project.",
+  { tag: "recent work", text: "Which projects are the most recent?" },
+  { tag: "stack", text: "What stack does the portfolio-agent repo use?" },
+  { tag: "search", text: "Which repositories use Next.js?" },
+  { tag: "en español", text: "¿Qué proyectos usan Supabase?" },
 ];
+
+const STEPS = [
+  { title: "You ask", body: "in plain language, in English or Spanish." },
+  { title: "The agent picks tools", body: "list_repos, get_readme and detect_stack, served over MCP." },
+  { title: "It answers from GitHub", body: "with live data, and shows every call it made." },
+];
+
+const delay = (ms: number) => ({ "--rise-delay": `${ms}ms` }) as CSSProperties;
 
 export function EmptyState({ owner, onPick }: EmptyStateProps) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 py-16 text-center">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold tracking-tight">Ask about {owner}&apos;s projects</h2>
-        <p className="max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-          The agent reads live GitHub data through an MCP server. Every answer shows the tools it
-          called.
-        </p>
+    <section className="grid flex-1 content-center gap-10 py-10 sm:grid-cols-12 sm:gap-8 sm:py-14">
+      <div className="rise sm:col-span-5" style={delay(80)}>
+        <h2 className="font-display text-[34px] leading-[1.05] tracking-[-0.015em] sm:text-[40px]">
+          What has <em className="text-signal-ink">{owner}</em> been building?
+        </h2>
+        <ol className="mt-8 flex flex-col gap-4">
+          {STEPS.map((step, index) => (
+            <li key={step.title} className="grid grid-cols-[2rem_1fr]">
+              <span className="pt-0.5 font-mono text-[11px] text-signal-ink">0{index + 1}</span>
+              <span className="text-sm leading-snug text-ink-soft">
+                <span className="font-medium text-ink">{step.title}</span> {step.body}
+              </span>
+            </li>
+          ))}
+        </ol>
       </div>
-      <ul className="grid w-full max-w-lg gap-2 sm:grid-cols-2">
-        {SUGGESTIONS.map((suggestion) => (
-          <li key={suggestion}>
-            <button
-              type="button"
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left text-sm hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600"
-              onClick={() => onPick(suggestion)}
-            >
-              {suggestion}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+
+      <div className="sm:col-span-7">
+        <p className="rise font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint" style={delay(140)}>
+          Try asking
+        </p>
+        <ul className="mt-3 border-b border-rule">
+          {SUGGESTIONS.map((suggestion, index) => (
+            <li key={suggestion.text} className="rise" style={delay(200 + index * 70)}>
+              <button
+                type="button"
+                className="group flex w-full items-baseline gap-4 border-t border-rule py-4 text-left transition-colors hover:border-ink"
+                onClick={() => onPick(suggestion.text)}
+              >
+                <span className="w-6 shrink-0 font-mono text-[11px] text-ink-faint">Q{index + 1}</span>
+                <span className="flex-1 text-[16px] leading-snug text-ink transition-colors group-hover:text-signal-ink sm:text-[17px]">
+                  {suggestion.text}
+                </span>
+                <span className="hidden font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink-faint sm:inline">
+                  {suggestion.tag}
+                </span>
+                <span
+                  aria-hidden
+                  className="text-ink-faint transition-transform group-hover:translate-x-1 group-hover:text-signal"
+                >
+                  →
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }

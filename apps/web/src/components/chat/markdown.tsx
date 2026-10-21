@@ -19,52 +19,56 @@ const components: Components = {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+      className="font-medium text-signal-ink underline decoration-signal/40 underline-offset-[3px] hover:decoration-signal"
     >
       {children}
     </a>
   ),
 
-  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
 
-  ul: ({ children }) => <ul className="list-disc space-y-1 pl-5 text-[15px] leading-relaxed">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5 text-[15px] leading-relaxed">{children}</ol>,
+  ul: ({ children }) => <ul className="list-disc space-y-1 pl-5 text-[15px] leading-relaxed marker:text-signal">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5 text-[15px] leading-relaxed marker:font-mono marker:text-[13px] marker:text-ink-faint">{children}</ol>,
   li: ({ children }) => <li className="pl-0.5">{children}</li>,
 
-  h1: ({ children }) => <h2 className="text-base font-semibold">{children}</h2>,
-  h2: ({ children }) => <h2 className="text-base font-semibold">{children}</h2>,
+  h1: ({ children }) => <h2 className="font-display text-lg tracking-[-0.01em]">{children}</h2>,
+  h2: ({ children }) => <h2 className="font-display text-lg tracking-[-0.01em]">{children}</h2>,
   h3: ({ children }) => <h3 className="text-[15px] font-semibold">{children}</h3>,
 
   code: ({ children }) => (
-    <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-[13px] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
+    <code className="rounded border border-rule bg-paper px-1 py-0.5 font-mono text-[13px] text-ink">
       {children}
     </code>
   ),
 
   // Code blocks scroll on their own so a long line cannot widen the bubble.
   pre: ({ children }) => (
-    <pre className="overflow-x-auto rounded-lg bg-zinc-100 p-3 font-mono text-[13px] leading-relaxed dark:bg-zinc-800">
+    <pre className="overflow-x-auto rounded-lg border border-rule bg-paper p-3 font-mono text-[13px] leading-relaxed">
       {children}
     </pre>
   ),
 
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-zinc-300 pl-3 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+    <blockquote className="border-l-2 border-signal pl-3 text-ink-soft">
       {children}
     </blockquote>
   ),
 
-  hr: () => <hr className="border-zinc-200 dark:border-zinc-800" />,
+  hr: () => <hr className="border-rule" />,
 
   // Tables come from remark-gfm; they scroll rather than stretch the bubble.
   table: ({ children }) => (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border border-rule">
       <table className="w-full border-collapse text-left text-sm">{children}</table>
     </div>
   ),
-  th: ({ children }) => <th className="border-b border-zinc-200 py-1 pr-3 font-semibold dark:border-zinc-800">{children}</th>,
-  td: ({ children }) => <td className="border-b border-zinc-100 py-1 pr-3 dark:border-zinc-900">{children}</td>,
+  th: ({ children }) => (
+    <th className="border-b border-rule bg-paper px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink-soft">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => <td className="border-b border-rule/60 px-3 py-2 align-top">{children}</td>,
 };
 
 interface MarkdownProps {
