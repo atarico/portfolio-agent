@@ -5,7 +5,7 @@ import "./globals.css";
 // One terminal face for headlines, reading and tool traces alike: JetBrains
 // Mono, the font of the owner's portfolio site, so the agent looks like part
 // of it. Variable, so every weight the UI uses comes from one file; italic for
-// the Q./A. markers and emphasis.
+// emphasis in answers.
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
@@ -17,12 +17,9 @@ export const metadata: Metadata = {
   description: "An LLM agent that answers questions about a GitHub portfolio through an MCP server.",
 };
 
-// Browser chrome (mobile address bar, PWA title bar) in the page's own paper colour.
+// Browser chrome (mobile address bar, PWA title bar) in the page's own screen colour.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3efe6" },
-    { media: "(prefers-color-scheme: dark)", color: "#13120f" },
-  ],
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

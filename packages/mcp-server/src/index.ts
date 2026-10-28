@@ -6,6 +6,7 @@ export { GitHubRestAdapter, type GitHubRestAdapterOptions } from "./adapters/git
 export { DEFAULT_OWNER, resolveOwner } from "./owner.ts";
 export {
   DEFAULT_PROFILE,
+  ownedProfile,
   type Profile,
   type ProfileEducation,
   type ProfileExperience,

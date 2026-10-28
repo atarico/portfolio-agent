@@ -11,8 +11,8 @@ interface MessageBubbleProps {
 }
 
 /**
- * The conversation reads like an interview transcript: the visitor's question
- * as a "Q." line, the agent's answer as an "A." card with its tool trace.
+ * The conversation reads like a terminal session: the visitor's question as a
+ * command at a `$` prompt, the agent's answer as its output, with the tool trace.
  */
 export function MessageBubble({ message }: MessageBubbleProps) {
   return message.role === "user" ? <Question message={message} /> : <Answer message={message} />;
@@ -21,8 +21,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 function Question({ message }: MessageBubbleProps) {
   return (
     <div className="flex gap-3 sm:gap-4">
-      <Marker className="text-signal-ink">Q.</Marker>
-      <div className="flex min-w-0 flex-col gap-2 pt-0.5">
+      <Marker className="glow text-signal">$</Marker>
+      <div className="flex min-w-0 flex-col gap-2">
         <span className="sr-only">You asked:</span>
         {message.parts.map((part, index) =>
           // The user's text stays literal: it is what they typed, and reformatting
@@ -31,7 +31,7 @@ function Question({ message }: MessageBubbleProps) {
           part.type === "text" ? (
             <p
               key={`${message.id}-${index}`}
-              className="whitespace-pre-wrap break-words font-display text-[21px] leading-snug tracking-[-0.01em] sm:text-2xl"
+              className="whitespace-pre-wrap break-words text-[18px] leading-snug font-bold tracking-[-0.01em] sm:text-[20px]"
             >
               {part.text}
             </p>
@@ -49,8 +49,8 @@ function Answer({ message }: MessageBubbleProps) {
 
   return (
     <div className="flex gap-3 sm:gap-4">
-      <Marker className="text-ink-faint">A.</Marker>
-      <div className="flex min-w-0 flex-1 flex-col gap-4 rounded-xl border border-rule bg-paper-raised px-4 py-4 shadow-[0_18px_40px_-32px_rgb(0_0_0/0.45)] sm:px-5">
+      <Marker className="text-ink-faint">&gt;</Marker>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 rounded-lg border border-rule bg-paper-raised px-4 py-4 sm:px-5">
         <span className="sr-only">Answer:</span>
         {toBlocks(message).map((block) =>
           block.kind === "text" ? (
@@ -67,7 +67,7 @@ function Answer({ message }: MessageBubbleProps) {
         )}
         {servedBy ? (
           <footer className="flex items-center gap-2 border-t border-dashed border-rule pt-3 font-mono text-[11px] text-ink-faint">
-            <span aria-hidden className="size-1.5 rounded-full bg-ok" />
+            <span aria-hidden className="size-1.5 rounded-full bg-ok shadow-[var(--glow-sm)]" />
             <span className="uppercase tracking-[0.14em]">answered by</span>
             <span className="text-ink-soft" translate="no">
               {servedBy}
@@ -81,7 +81,7 @@ function Answer({ message }: MessageBubbleProps) {
 
 function Marker({ className, children }: { className: string; children: ReactNode }) {
   return (
-    <span aria-hidden className={`w-6 shrink-0 pt-0.5 font-display text-2xl leading-none italic ${className}`}>
+    <span aria-hidden className={`w-5 shrink-0 pt-0.5 text-[18px] leading-snug font-bold sm:text-[20px] ${className}`}>
       {children}
     </span>
   );

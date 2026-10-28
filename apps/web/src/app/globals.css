@@ -1,44 +1,30 @@
 @import "tailwindcss";
 
 /*
- * Editorial engineering-notebook palette: warm paper, ink, and one signal
- * colour for whatever the agent is doing right now. The signal is the accent of
- * the owner's portfolio, #00ff41: used as-is on the dark scheme (13.6:1), and
- * as a deeper shade of the same 135° hue on paper, where #00ff41 itself would
- * be 1.4:1. Text colours keep at least 4.5:1 against their paper in both schemes.
+ * Phosphor-terminal palette, taken from the owner's portfolio site so the agent
+ * reads as part of it: near-black screen, off-white text, and #00ff41 as the one
+ * signal colour, kept for the name, the prompts and whatever the agent is doing
+ * right now. Dark only, like the portfolio. Every text colour keeps at least
+ * 4.5:1 against both the screen and the raised panels.
  */
 :root {
-  color-scheme: light;
-  --paper: #f3efe6;
-  --paper-raised: #fbf9f4;
-  --ink: #1b1a17;
-  --ink-soft: #57524a;
-  --ink-faint: #7d7668;
-  --rule: #d8d0bf;
-  --rule-strong: #1b1a17;
-  --signal: #007a1f;
-  --signal-ink: #006e1c;
-  --on-signal: #ffffff;
-  --ok: #007a1f;
-  --bad: #b42318;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --paper: #13120f;
-    --paper-raised: #1b1a16;
-    --ink: #ece6d8;
-    --ink-soft: #b4ac9a;
-    --ink-faint: #8a8372;
-    --rule: #35322a;
-    --rule-strong: #ece6d8;
-    --signal: #00ff41;
-    --signal-ink: #00ff41;
-    --on-signal: #0a0a0a;
-    --ok: #00ff41;
-    --bad: #f2705e;
-  }
+  color-scheme: dark;
+  --paper: #0a0a0a;
+  --paper-raised: #111111;
+  --ink: #f0f0f0;
+  --ink-soft: #b3b3b3;
+  --ink-faint: #888888;
+  --rule: #262626;
+  --rule-strong: #3a3a3a;
+  --signal: #00ff41;
+  --signal-ink: #00ff41;
+  --on-signal: #0a0a0a;
+  --ok: #00ff41;
+  --bad: #ff5f56;
+  /* The portfolio's glows: a phosphor bloom for the few things that should shine. */
+  --glow-sm: 0 0 6px #00ff4159;
+  --glow-md: 0 0 12px #00ff4166, 0 0 24px #00ff4126;
+  --glow-lg: 0 0 20px #00ff4180, 0 0 40px #00ff4133;
 }
 
 @theme inline {
@@ -61,8 +47,17 @@
 
 @layer base {
   :root {
-    /* A faint paper grain: an inline SVG noise tile, so it costs no request. */
-    --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    /*
+     * Faint CRT scanlines: one pixel of light every three, at 1.5% white, so the
+     * screen has a texture without lowering any text contrast. No request.
+     */
+    --scanlines: repeating-linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 0.015) 0,
+      rgb(255 255 255 / 0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
   }
 
   html {
@@ -86,7 +81,8 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--signal) 28%, transparent);
+    background: color-mix(in oklab, var(--signal) 32%, transparent);
+    color: var(--ink);
   }
 
   /* In the base layer so a component's own focus treatment (utilities) wins. */
@@ -97,15 +93,27 @@
 }
 
 /*
- * The page's paper, pinned to the viewport. Anything that must sit opaquely on
- * top of scrolling content (the composer) uses the same class, so its grain
- * lines up with the page's and the band does not read as a separate box.
+ * The screen, pinned to the viewport: a faint phosphor bloom at the top, behind
+ * the header, over the scanlines. Anything that must sit opaquely on top of
+ * scrolling content (the composer) uses the same class, so its texture lines up
+ * with the page's and the band does not read as a separate box.
  */
 .paper,
 body {
   background-color: var(--paper);
-  background-image: var(--grain);
+  background-image:
+    radial-gradient(60rem 22rem at 50% -6rem, color-mix(in oklab, var(--signal) 9%, transparent), transparent 70%),
+    var(--scanlines);
   background-attachment: fixed;
+}
+
+/* Text that glows like lit phosphor: the name, prompts, the active state. */
+.glow {
+  text-shadow: var(--glow-sm);
+}
+
+.glow-lg {
+  text-shadow: var(--glow-lg);
 }
 
 /* One orchestrated entrance: sections rise in sequence, staggered by --rise-delay. */
@@ -125,6 +133,21 @@ body {
   animation-delay: var(--rise-delay, 0ms);
 }
 
+/* The terminal cursor: on, then off, with no fade, like the portfolio's. */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
 /* The "agent is working" bar: a short signal stroke sweeping a hairline. */
 @keyframes scan {
   from {
@@ -141,7 +164,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .scan {
+  .scan,
+  .cursor-blink {
     animation: none;
   }
 }
