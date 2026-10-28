@@ -6,6 +6,7 @@ import type { Profile } from "./profile.ts";
 import { PROFILE_SECTIONS, getProfile } from "./tools/get-profile.ts";
 import { DEFAULT_README_MAX_CHARS, getReadme } from "./tools/get-readme.ts";
 import { detectStack } from "./tools/detect-stack.ts";
+import { DEFAULT_ACTIVITY_LIMIT, listActivity } from "./tools/list-activity.ts";
 import { DEFAULT_CONTRIBUTION_LIMIT, listContributions } from "./tools/list-contributions.ts";
 import { DEFAULT_REPO_LIMIT, listRepos } from "./tools/list-repos.ts";
 import { validateOwner, validateRepo } from "./validation.ts";
@@ -119,6 +120,25 @@ export function registerPortfolioTools(server: McpServer, deps: PortfolioServerD
     },
     async ({ project, limit }) =>
       run("list_contributions", () => listContributions(github, { owner, project, limit }, profile)),
+  );
+
+  server.registerTool(
+    "list_activity",
+    {
+      title: "List activity",
+      description: `List ${owner}'s recent work in the repositories they own: the newest commits (repository, message, date) and the pull requests they opened there, with how many were merged. Use it for questions about recent activity, their last commits, or whether they work with pull requests on their own projects. Public repositories only.`,
+      inputSchema: z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe(`Maximum commits and pull requests to return, most recent first. Defaults to ${DEFAULT_ACTIVITY_LIMIT}.`),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ limit }) => run("list_activity", () => listActivity(github, { owner, limit })),
   );
 
   server.registerTool(

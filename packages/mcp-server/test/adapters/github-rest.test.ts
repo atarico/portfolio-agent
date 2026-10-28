@@ -226,6 +226,84 @@ describe("GitHubRestAdapter.listExternalPullRequests", () => {
   });
 });
 
+describe("GitHubRestAdapter.listOwnPullRequests", () => {
+  it("lists pull requests the author opened in their own public repositories, with GitHub's total", async () => {
+    // is:public keeps private repositories out even with a token that can read them.
+    const query = "is:pr is:public author:octocat user:octocat";
+    const base = "https://api.github.com/search/issues";
+    const item = (number: number, state: string, mergedAt: string | null) => ({
+      number,
+      title: `PR ${number}`,
+      html_url: `https://github.com/octocat/app/pull/${number}`,
+      state,
+      created_at: "2026-10-01T00:00:00Z",
+      repository_url: "https://api.github.com/repos/octocat/app",
+      pull_request: { merged_at: mergedAt },
+    });
+    const { fetchImpl, requests } = fakeFetch({
+      [`${base}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100`]: () =>
+        json({ total_count: 201, items: [item(12, "open", null), item(11, "closed", "2026-10-02T00:00:00Z")] }),
+      [`${base}?q=${encodeURIComponent(`${query} review:approved`)}&per_page=100`]: () => json({ total_count: 0, items: [] }),
+    });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    const page = await adapter.listOwnPullRequests("octocat");
+
+    expect(page.total).toBe(201);
+    expect(page.items.map(({ repo, number, state }) => ({ repo, number, state }))).toEqual([
+      { repo: "octocat/app", number: 12, state: "open" },
+      { repo: "octocat/app", number: 11, state: "merged" },
+    ]);
+    expect(requests).toHaveLength(2);
+  });
+});
+
+describe("GitHubRestAdapter.listOwnCommits", () => {
+  // is:public keeps private repositories out even with a token that can read them.
+  const query = "author:octocat user:octocat is:public merge:false";
+  const url = `https://api.github.com/search/commits?q=${encodeURIComponent(query)}&sort=author-date&order=desc&per_page=100`;
+
+  it("lists the author's newest commits in their own repositories, merge commits excluded, with GitHub's total", async () => {
+    const { fetchImpl } = fakeFetch({
+      [url]: () =>
+        json({
+          total_count: 968,
+          items: [
+            {
+              sha: "bc5d974aa1b2c3d4e5f6",
+              html_url: "https://github.com/octocat/app/commit/bc5d974aa1b2c3d4e5f6",
+              commit: { message: "fix: close the connection\n\nLonger body.", author: { date: "2026-10-28T00:59:11.000-03:00" } },
+              repository: { full_name: "octocat/app" },
+            },
+          ],
+        }),
+    });
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    const page = await adapter.listOwnCommits("octocat");
+
+    expect(page).toEqual({
+      total: 968,
+      items: [
+        {
+          repo: "octocat/app",
+          sha: "bc5d974",
+          message: "fix: close the connection",
+          date: "2026-10-28T00:59:11.000-03:00",
+          url: "https://github.com/octocat/app/commit/bc5d974aa1b2c3d4e5f6",
+        },
+      ],
+    });
+  });
+
+  it("fails loudly when the search API refuses, instead of reporting no commits", async () => {
+    const { fetchImpl } = fakeFetch({});
+    const adapter = new GitHubRestAdapter({ fetch: fetchImpl });
+
+    await expect(adapter.listOwnCommits("octocat")).rejects.toThrow(/GitHub API 404/);
+  });
+});
+
 describe("GitHubRestAdapter.getPrivateContributionCount", () => {
   function graphqlFetch(body: unknown, status = 200) {
     const requests: Array<{ url: string; method: string | undefined; body: string; authorization: string | null }> = [];

@@ -7,7 +7,7 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 1. **Browser.** `useChat` posts the whole conversation to `/api/chat` (a Next.js Route Handler).
 2. **Guards.** Rate limit per client, then body validation with zod: message count, part count, text length, and an aggregate 128 KiB budget (`lib/http/guards.ts`, `lib/chat/request.ts`).
 3. **Model.** `resolveModel(env)` turns `LLM_PROVIDER` into a fallback chain, built fresh for each request (`lib/llm/provider.ts`, `lib/llm/fallback.ts`).
-4. **Tools.** An MCP client connects to the MCP server **in-process** over an in-memory transport and lists its tools: `list_repos`, `get_readme`, `detect_stack`, `list_contributions`, `get_profile` (`lib/mcp/client.ts`).
+4. **Tools.** An MCP client connects to the MCP server **in-process** over an in-memory transport and lists its tools: `list_repos`, `get_readme`, `detect_stack`, `list_contributions`, `list_activity`, `get_profile` (`lib/mcp/client.ts`).
 5. **History.** The client history is converted to model messages and pruned: earlier tool payloads and reasoning are dropped, and only the conversation's text is kept.
 6. **Agent loop.** `streamText` runs up to 6 steps. In each step the model either answers or calls tools. The AI SDK executes those tools through MCP and feeds the results back. The last step may not call tools.
 7. **Data.** GitHub tools go through `GitHubPort`, implemented by a REST adapter behind a process-wide cache. `get_profile` reads a JSON file bundled with the server.
@@ -68,6 +68,14 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 - **Why:** a portfolio is also what someone built with others. `list_contributions` runs two searches: every pull request the owner opened outside its own repositories (`is:pr author:<owner> -user:<owner>`), and the approved subset (`review:approved`), which the first search does not report.
 - **Private work:** GitHub publishes an anonymous count of private contributions when the owner enables it on their profile. `getPrivateContributionCount` reads it over GraphQL (any token, the login passed as a variable), and the agent reports it as "N contributions to private repositories in the last year, GitHub does not say which". Nothing about private work comes from the owner's own declarations: every figure is GitHub's.
 - **Cost:** with a scope-less token, private repositories (a company's, a client's) cannot be named. For a named project with no public match, the tool's note is the answer: contributions to private repositories cannot be shown. When the CV lists a role at that organization, the note quotes it too, since "private" alone read as a denial of work the CV states. A token with `repo` scope would name them, but `/api/mcp` would then serve private files to any caller, so it is not used. The search API allows 30 requests per minute, so results go through the same 10-minute cache.
+
+### Recent work in the owner's own repositories comes from the same searches
+
+- **Why:** "what have they been working on lately?" and "do they use pull requests on their own projects?" are recruiter questions that `list_contributions` cannot answer, since it only sees other people's repositories. Without a tool for them the agent could only say it did not know.
+- **How:** `list_activity` runs the pull request search of `list_contributions` with `user:<owner>` instead of `-user:<owner>`, and a commit search (`author:<owner> user:<owner> merge:false`, newest first). Merge commits are left out because they restate pull requests and would crowd the real work out of the newest page.
+- **Public only, by query:** both searches add `is:public`. They return repository names, pull request titles and commit messages, so a token that can read private repositories would otherwise expose them, which `list_repos` never does.
+- **Totals:** a search page holds at most 100 items, so each result carries GitHub's `total_count` next to the items. The pull request counts by state describe the 100 most recently updated when there are more, and the tool's note says so.
+- **Cost:** commits on each repository's default branch only. Three search calls per use, cached for 10 minutes like every other GitHub read.
 
 ### The CV and portfolio site are converted once, and read through a tool
 
