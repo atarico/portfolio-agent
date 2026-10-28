@@ -1,3 +1,4 @@
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 
@@ -24,6 +25,11 @@ export interface ProviderEntry {
  * The Google default is deliberately not the newest Flash: measured on the free
  * tier (2026-10-21), gemini-3.7-flash took 18-40 s per call or failed with 503
  * "high demand", while gemini-3.6-flash answered in 2-3.5 s.
+ *
+ * Anthropic is the one paid entry. It belongs at the end of a free-first chain
+ * (`groq,google,anthropic`): the fallback only reaches it when every free model
+ * before it has failed, so the free quotas are always spent first. Cap what it
+ * can cost with a spend limit on the API key's Console workspace.
  */
 export const PROVIDER_REGISTRY = {
   google: {
@@ -35,6 +41,11 @@ export const PROVIDER_REGISTRY = {
     defaultModel: "openai/gpt-oss-120b",
     apiKeyVar: "GROQ_API_KEY",
     create: (apiKey) => createGroq({ apiKey }),
+  },
+  anthropic: {
+    defaultModel: "claude-haiku-5-5",
+    apiKeyVar: "ANTHROPIC_API_KEY",
+    create: (apiKey) => createAnthropic({ apiKey }),
   },
 } as const satisfies Record<string, ProviderEntry>;
 

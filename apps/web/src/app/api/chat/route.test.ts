@@ -27,7 +27,7 @@ vi.mock("@/lib/llm/provider", () => ({
 
 import { isStepCount, pruneMessages, streamText, toUIMessageStream } from "ai";
 
-import { MAX_AGENT_STEPS } from "@/lib/agent/instructions";
+import { MAX_AGENT_STEPS, MAX_OUTPUT_TOKENS } from "@/lib/agent/instructions";
 import { ERROR_MESSAGES } from "@/lib/http/errors";
 import { connectPortfolioMcp } from "@/lib/mcp/client";
 import { resolveModel } from "@/lib/llm/provider";
@@ -160,6 +160,15 @@ describe("createChatRouteHandler", () => {
 
     const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ maxRetries?: number }];
     expect(options.maxRetries).toBe(0);
+  });
+
+  it("caps the output tokens of every model call, so one answer cannot run up the bill", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ maxOutputTokens?: number }];
+    expect(options.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
   });
 
   it("resolves the model chain from the injected env and logs every fallback", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_AGENT_STEPS, buildInstructions, stepSettings } from "./instructions";
+import { MAX_AGENT_STEPS, MAX_OUTPUT_TOKENS, buildInstructions, stepSettings } from "./instructions";
 
 describe("buildInstructions", () => {
   it("names the portfolio owner and the available tools", () => {
@@ -24,6 +24,15 @@ describe("buildInstructions", () => {
     // What costs quota is round-trips, not tool calls. Two tools in one turn is
     // half the price of one tool in each of two turns.
     expect(buildInstructions("octocat")).toMatch(/same turn|at once|together/i);
+  });
+
+  it("tells the model to decline requests unrelated to the owner's career and projects", () => {
+    // The chat is public and the model is paid for: without this rule anyone can
+    // use it as a free general-purpose assistant.
+    const instructions = buildInstructions("octocat");
+
+    expect(instructions).toMatch(/unrelated/i);
+    expect(instructions).toMatch(/decline/i);
   });
 
   it("tells the model its turn budget, so it batches tool calls instead of spending turns", () => {
@@ -83,6 +92,13 @@ describe("MAX_AGENT_STEPS", () => {
   it("keeps one question within a free-tier friendly budget", () => {
     expect(MAX_AGENT_STEPS).toBeGreaterThanOrEqual(3);
     expect(MAX_AGENT_STEPS).toBeLessThanOrEqual(8);
+  });
+});
+
+describe("MAX_OUTPUT_TOKENS", () => {
+  it("leaves room for reasoning plus a concise answer, but not for an essay", () => {
+    expect(MAX_OUTPUT_TOKENS).toBeGreaterThanOrEqual(2_048);
+    expect(MAX_OUTPUT_TOKENS).toBeLessThanOrEqual(8_192);
   });
 });
 
