@@ -26,6 +26,9 @@ export function ToolCallBadge({ tool }: ToolCallBadgeProps) {
       <summary className="flex cursor-pointer list-none items-center gap-2.5 py-1.5 font-mono text-[12.5px] select-none [&::-webkit-details-marker]:hidden">
         <StatusGlyph state={tool.state} />
         <span className="min-w-0 truncate" translate="no">
+          <span aria-hidden className="text-signal">
+            &gt;{" "}
+          </span>
           <span className="font-medium text-ink">{tool.name}</span>
           <span className="text-ink-faint">({formatToolArgs(tool.input)})</span>
         </span>
@@ -36,7 +39,7 @@ export function ToolCallBadge({ tool }: ToolCallBadgeProps) {
           ›
         </span>
       </summary>
-      <div className="mt-1 mb-2 flex flex-col gap-3 rounded-lg border border-rule bg-paper px-3 py-3">
+      <div className="mt-1 mb-2 flex flex-col gap-3 rounded-md border border-rule bg-paper px-3 py-3">
         <Payload label="input" value={tool.input} />
         {tool.state === "output-error" ? (
           <Payload label="error" value={tool.errorText} />
