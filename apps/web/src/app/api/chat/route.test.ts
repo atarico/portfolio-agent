@@ -27,7 +27,7 @@ vi.mock("@/lib/llm/provider", () => ({
 
 import { isStepCount, pruneMessages, streamText, toUIMessageStream } from "ai";
 
-import { MAX_AGENT_STEPS } from "@/lib/agent/instructions";
+import { MAX_AGENT_STEPS, MAX_OUTPUT_TOKENS } from "@/lib/agent/instructions";
 import { ERROR_MESSAGES } from "@/lib/http/errors";
 import { connectPortfolioMcp } from "@/lib/mcp/client";
 import { resolveModel } from "@/lib/llm/provider";
@@ -110,6 +110,18 @@ describe("createChatRouteHandler", () => {
     expect(controller.signal.aborted).toBe(false);
   });
 
+  it("closes the MCP connection when the visitor presses Stop, since an aborted stream never reaches onEnd", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const connection = await vi.mocked(connectPortfolioMcp).mock.results.at(-1)?.value;
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ onAbort?: () => unknown }];
+    expect(connection.close).not.toHaveBeenCalled();
+    options.onAbort?.();
+    expect(connection.close).toHaveBeenCalledTimes(1);
+  });
+
   it("pins the agent step budget: isStepCount receives MAX_AGENT_STEPS and streamText's stopWhen is exactly its result", async () => {
     const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
     const request = chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] });
@@ -160,6 +172,15 @@ describe("createChatRouteHandler", () => {
 
     const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ maxRetries?: number }];
     expect(options.maxRetries).toBe(0);
+  });
+
+  it("caps the output tokens of every model call, so one answer cannot run up the bill", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ maxOutputTokens?: number }];
+    expect(options.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
   });
 
   it("resolves the model chain from the injected env and logs every fallback", async () => {

@@ -10,6 +10,17 @@
 export const MAX_AGENT_STEPS = 6;
 
 /**
+ * Upper bound on the tokens one model call may generate, reasoning included.
+ *
+ * A concise answer is a few hundred tokens, and reasoning at the "low" setting
+ * the route asks for stays well under a thousand, so this never cuts a real
+ * answer. What it cuts is a visitor using the public chat to generate long
+ * text: the instructions tell the model to decline that, and this bounds what
+ * it costs when the model does not.
+ */
+export const MAX_OUTPUT_TOKENS = 4_096;
+
+/**
  * Per-step settings for the agent loop: the last step may not call tools.
  *
  * Without this, a model that keeps calling tools one at a time spends the whole
@@ -48,6 +59,9 @@ export function buildInstructions(owner: string): string {
     "  technology, ask for skills and projects in one call, since projects say where it was used.",
     "",
     "Rules:",
+    "- Only answer questions about their career and their projects. Politely decline anything",
+    "  unrelated (writing code, essays or translations, general knowledge, other people) in one",
+    "  short sentence, and say what you can help with instead.",
     "- Ground every claim in tool results. Cite repository names explicitly.",
     "- Facts from get_profile come from their CV and portfolio site: attribute them,",
     "  e.g. \"according to their CV\". For a repository's current state (tests, stack, activity),",

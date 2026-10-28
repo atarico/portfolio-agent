@@ -38,6 +38,22 @@ describe("resolveModel", () => {
     expect(resolved.model.modelId).toBe(`${DEFAULT_MODELS.groq},${DEFAULT_MODELS.google}`);
   });
 
+  it("puts Claude Haiku last in a free-first chain, so it answers only when the free tiers fail", () => {
+    const resolved = resolveModel({
+      LLM_PROVIDER: "groq,google,anthropic",
+      GROQ_API_KEY: "k1",
+      GOOGLE_GENERATIVE_AI_API_KEY: "k2",
+      ANTHROPIC_API_KEY: "k3",
+    });
+
+    expect(resolved.chain).toEqual([
+      { provider: "groq", modelId: DEFAULT_MODELS.groq },
+      { provider: "google", modelId: DEFAULT_MODELS.google },
+      { provider: "anthropic", modelId: "claude-haiku-5-5" },
+    ]);
+    expect(resolved.model.modelId).toBe(`${DEFAULT_MODELS.groq},${DEFAULT_MODELS.google},claude-haiku-5-5`);
+  });
+
   it("pins a model per entry with provider:model, and LLM_MODEL fills only a bare first entry", () => {
     const keys = { GROQ_API_KEY: "k1", GOOGLE_GENERATIVE_AI_API_KEY: "k2", LLM_MODEL: "override" };
 
@@ -68,6 +84,7 @@ describe("resolveModel", () => {
   it("names the missing API key variable in the error", () => {
     expect(() => resolveModel({})).toThrow(/GOOGLE_GENERATIVE_AI_API_KEY/);
     expect(() => resolveModel({ LLM_PROVIDER: "groq" })).toThrow(/GROQ_API_KEY/);
+    expect(() => resolveModel({ LLM_PROVIDER: "anthropic" })).toThrow(/ANTHROPIC_API_KEY/);
   });
 
   it("rejects an unknown provider and lists the supported ones", () => {

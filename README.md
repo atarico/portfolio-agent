@@ -10,7 +10,7 @@ A small, complete example of a **GenAI-powered fullstack app**: a chat UI, an **
 | `list_contributions` | Pull requests opened in other people's and organizations' repositories, merged or not, approved or not, optionally narrowed to one project. Private work appears only as GitHub's own count (e.g. "741 contributions to private repositories in the last year"), which never says which repositories: the agent states that count and never names or guesses them |
 | `get_profile` | What the owner's CV and portfolio site say: experience, education, skills, projects (including ones not on GitHub) and links. Several sections in one call, attributed to their source |
 
-Everything runs on free tiers (Groq, Google AI Studio, public GitHub API, Vercel). The LLM is an ordered **fallback chain** set by one environment variable: when a free-tier model is overloaded, rate limited or slow, the same step moves to the next model instead of failing in front of the visitor.
+Everything runs on free tiers (Groq, Google AI Studio, public GitHub API, Vercel). The LLM is an ordered **fallback chain** set by one environment variable: when a free-tier model is overloaded, rate limited or slow, the same step moves to the next model instead of failing in front of the visitor. Claude Haiku can join as the one paid link, last in the chain, so it answers only when every free model has failed.
 
 ## Architecture
 
@@ -55,6 +55,7 @@ Measured on 2026-10-21 before these safeguards: the default Gemini model answere
 | What goes wrong | What happens | Where |
 |---|---|---|
 | A model returns 503 or 429 | The same step is replayed on the next model of the chain, immediately | `lib/llm/fallback.ts` |
+| Every free model of the chain is out of quota or down | Claude Haiku, last in the chain, answers; a Console workspace spend limit caps what it can cost | `PROVIDER_REGISTRY` in `lib/llm/provider.ts` |
 | A model accepts the request but produces nothing for 8 s | The attempt is cancelled and the next model gets the step | `DEFAULT_FIRST_CHUNK_TIMEOUT_MS` |
 | A model keeps calling tools until the step budget runs out | The last step may not call tools, so every question ends with an answer | `stepSettings` in `lib/agent/instructions.ts` |
 | Long conversations eat the per-minute token budget | Earlier tool payloads and reasoning are pruned from the replayed history; tool results are compact JSON; READMEs are capped at 4,000 characters | `api/chat/route.ts`, `packages/mcp-server` |
@@ -70,6 +71,7 @@ pnpm install
 cp apps/web/.env.example apps/web/.env.local
 # add GROQ_API_KEY (free at https://console.groq.com/keys)
 # and GOOGLE_GENERATIVE_AI_API_KEY (free at https://aistudio.google.com/apikey)
+# optional: ANTHROPIC_API_KEY (paid, https://platform.claude.com) for Claude Haiku as the last fallback
 pnpm dev
 ```
 
@@ -82,11 +84,12 @@ Open http://localhost:3000 and ask about the projects.
 ```bash
 # apps/web/.env.local
 LLM_PROVIDER=groq,google,google:gemini-3.5-flash-lite   # recommended: fast first, then Gemini
+LLM_PROVIDER=groq,google,anthropic                      # free first, Claude Haiku only when both fail
 LLM_PROVIDER=google                                     # a single model, no fallback (the default)
 LLM_MODEL=gemini-3.5-flash                              # optional: model of the first entry, when it names none
 ```
 
-Every entry needs its provider's API key; a missing one is a configuration error, not a silent skip. Defaults live in `PROVIDER_REGISTRY` (`gemini-3.6-flash` for Google, `openai/gpt-oss-120b` for Groq). Groq's free tier allows 8,000 tokens per minute *per model*, so listing two Groq models gives two separate budgets.
+Every entry needs its provider's API key; a missing one is a configuration error, not a silent skip. Defaults live in `PROVIDER_REGISTRY` (`gemini-3.6-flash` for Google, `openai/gpt-oss-120b` for Groq, `claude-haiku-5-5` for Anthropic). Groq's free tier allows 8,000 tokens per minute *per model*, so listing two Groq models gives two separate budgets.
 
 ### Pointing it at another GitHub user
 
@@ -127,6 +130,7 @@ Then ask Claude Code: *"Use portfolio-agent to list the repos and detect the sta
 - The rate-limiter's bucket map is bounded (10,000 tracked keys by default): expired buckets are pruned first, and if still over the cap the oldest remaining bucket is evicted, so a flood of distinct client keys cannot grow the map without limit.
 - Client identity for rate limiting trusts `x-forwarded-for`/`x-real-ip` only when `TRUST_PROXY_HEADERS=1` is set. Vercel rewrites those headers at its edge for direct traffic, which is why they are trustworthy there, but the same is not true off-platform. Leave it unset outside Vercel (or behind an untrusted proxy): every caller then shares one rate-limit bucket, which is safe (over-throttling) rather than trivially bypassable per request.
 - Error responses are opaque in production (`{ error, code }`); details go to the server log. Outside production the `detail` field is included to help development.
+- **The chat answers only about the owner.** The instructions tell the model to decline unrelated requests (essays, translations, general questions), and `MAX_OUTPUT_TOKENS` caps every model call at 4,096 tokens, so a visitor cannot turn the public chat into a free general-purpose assistant. A determined prompt can still get past an instruction; the hard limit on what Claude can cost is its Console workspace spend limit.
 - Repository names and file paths are validated before any GitHub request is built.
 - **Never set `MCP_AUTH_TOKEN` to the same value as `GITHUB_TOKEN`.** They protect different boundaries: `MCP_AUTH_TOKEN` gates who may call `/api/mcp`, `GITHUB_TOKEN` is the credential the server presents to GitHub. The MCP route never forwards an inbound bearer to the GitHub adapter, but the two secrets should still never collide.
 - `/api/chat` also caps the aggregate size of the validated `messages` payload (`MAX_PAYLOAD_BYTES`, 128 KiB), on top of the per-message, per-part and per-text-part caps. A per-part ceiling would only bound one part while the message and part caps still permit hundreds of them; the aggregate budget bounds the whole request regardless of how the size is spread across parts.
@@ -178,9 +182,10 @@ packages/mcp-server/
 
 - **Groq** answers a tool step in about 0.5-1.5 s, but its free tier allows 8,000 tokens per minute per model; a question with a couple of tool results uses roughly half of that. Put it first for speed and let the chain absorb its 429s.
 - **Gemini** free tier (Flash models) allows roughly 10 requests/minute. The newest Flash is often the most overloaded one: pick a model you have measured, not the latest. Do not enable billing on the Google Cloud project or the free tier disappears.
+- **Claude Haiku** (optional, and the only paid model) is $0.10 / $0.50 per million input / output tokens for prompts up to 100K tokens ($0.50 / $2.50 above). Keep it last in the chain so the free quotas are spent first. Create its API key in a Console workspace of its own and give that workspace a monthly spend limit: once the limit is reached, Anthropic refuses the requests instead of charging more. Claude Max 5x and 20x plans include monthly API credits that pay for it, claimed by linking a Console organization to the plan.
 - One question costs 2-4 LLM calls, capped at `MAX_AGENT_STEPS`.
 - **GitHub** allows 60 unauthenticated requests/hour per IP, and a question over several repositories can spend 10-20 of them. A token with no scopes (`GITHUB_TOKEN`) raises it to 5,000/hour; set one before a demo.
 
 ## Stack
 
-Next.js 16, React 19, Tailwind CSS 4, Vercel AI SDK 7 (`ai`, `@ai-sdk/react`, `@ai-sdk/mcp`, `@ai-sdk/google`, `@ai-sdk/groq`), MCP TypeScript SDK 2 (`@modelcontextprotocol/server`), Zod 4, Vitest 5, pnpm workspaces.
+Next.js 16, React 19, Tailwind CSS 4, Vercel AI SDK 7 (`ai`, `@ai-sdk/react`, `@ai-sdk/mcp`, `@ai-sdk/google`, `@ai-sdk/groq`, `@ai-sdk/anthropic`), MCP TypeScript SDK 2 (`@modelcontextprotocol/server`), Zod 4, Vitest 5, pnpm workspaces.

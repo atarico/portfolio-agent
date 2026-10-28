@@ -8,7 +8,7 @@ import {
   toUIMessageStream,
 } from "ai";
 
-import { MAX_AGENT_STEPS, buildInstructions, stepSettings } from "@/lib/agent/instructions";
+import { MAX_AGENT_STEPS, MAX_OUTPUT_TOKENS, buildInstructions, stepSettings } from "@/lib/agent/instructions";
 import { answerMetadata } from "@/lib/chat/metadata";
 import { PUBLIC_ROUTE_BUDGET, createRateLimiter, type RateLimiter } from "@/lib/chat/rate-limit";
 import { parseChatRequest } from "@/lib/chat/request";
@@ -108,6 +108,8 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
         tools,
         stopWhen: isStepCount(MAX_AGENT_STEPS),
         prepareStep: ({ stepNumber }) => stepSettings(stepNumber),
+        // Per model call, so one answer costs at most MAX_AGENT_STEPS times this.
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
         // No retries. The SDK's default is 2, and its backoff only honours a
         // Retry-After *header*; the free tiers this runs on report their wait in
         // the error body instead, so the retries fire at 2s and 4s against a
@@ -142,6 +144,8 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
           }
         },
         onEnd: connection.close,
+        // An aborted stream (the Stop button) ends here and never reaches onEnd.
+        onAbort: () => void connection.close(),
         onError: ({ error }) => {
           console.error("[chat] stream error:", error);
           void connection.close();
