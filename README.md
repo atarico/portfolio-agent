@@ -182,7 +182,7 @@ packages/mcp-server/
 
 - **Groq** answers a tool step in about 0.5-1.5 s, but its free tier allows 8,000 tokens per minute per model; a question with a couple of tool results uses roughly half of that. Put it first for speed and let the chain absorb its 429s.
 - **Gemini** free tier (Flash models) allows roughly 10 requests/minute. The newest Flash is often the most overloaded one: pick a model you have measured, not the latest. Do not enable billing on the Google Cloud project or the free tier disappears.
-- **Claude Haiku** (optional, and the only paid model) is $0.10 / $0.50 per million input / output tokens. Keep it last in the chain so the free quotas are spent first. Create its API key in a Console workspace of its own and give that workspace a monthly spend limit: once the limit is reached, Anthropic refuses the requests instead of charging more. Claude Max plans include monthly API credits that pay for it.
+- **Claude Haiku** (optional, and the only paid model) is $0.10 / $0.50 per million input / output tokens for prompts up to 100K tokens ($0.50 / $2.50 above). Keep it last in the chain so the free quotas are spent first. Create its API key in a Console workspace of its own and give that workspace a monthly spend limit: once the limit is reached, Anthropic refuses the requests instead of charging more. Claude Max 5x and 20x plans include monthly API credits that pay for it, claimed by linking a Console organization to the plan.
 - One question costs 2-4 LLM calls, capped at `MAX_AGENT_STEPS`.
 - **GitHub** allows 60 unauthenticated requests/hour per IP, and a question over several repositories can spend 10-20 of them. A token with no scopes (`GITHUB_TOKEN`) raises it to 5,000/hour; set one before a demo.
 

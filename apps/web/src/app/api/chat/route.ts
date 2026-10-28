@@ -144,6 +144,8 @@ export function createChatRouteHandler(deps: ChatRouteDeps = {}): (request: Requ
           }
         },
         onEnd: connection.close,
+        // An aborted stream (the Stop button) ends here and never reaches onEnd.
+        onAbort: () => void connection.close(),
         onError: ({ error }) => {
           console.error("[chat] stream error:", error);
           void connection.close();

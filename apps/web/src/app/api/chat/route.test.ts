@@ -110,6 +110,18 @@ describe("createChatRouteHandler", () => {
     expect(controller.signal.aborted).toBe(false);
   });
 
+  it("closes the MCP connection when the visitor presses Stop, since an aborted stream never reaches onEnd", async () => {
+    const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
+
+    await handler(chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] }));
+
+    const connection = await vi.mocked(connectPortfolioMcp).mock.results.at(-1)?.value;
+    const [options] = vi.mocked(streamText).mock.calls.at(-1) as [{ onAbort?: () => unknown }];
+    expect(connection.close).not.toHaveBeenCalled();
+    options.onAbort?.();
+    expect(connection.close).toHaveBeenCalledTimes(1);
+  });
+
   it("pins the agent step budget: isStepCount receives MAX_AGENT_STEPS and streamText's stopWhen is exactly its result", async () => {
     const handler = createChatRouteHandler({ env: {}, limiter: allowingLimiter() });
     const request = chatRequest({ messages: [{ role: "user", parts: [{ type: "text", text: "hi" }] }] });
