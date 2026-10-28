@@ -53,6 +53,8 @@ describe("parseChatRequest", () => {
     });
 
     expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual(['Invalid option: expected one of "user"|"assistant"']);
   });
 
   it("requires the last message to come from the user", () => {
@@ -79,6 +81,46 @@ describe("parseChatRequest", () => {
     expect(tooManyParts.ok).toBe(false);
     expect(tooLong.ok).toBe(false);
     expect(atLimit.ok).toBe(true);
+  });
+
+  it("accepts an earlier answer longer than MAX_TEXT_CHARS, so a long answer never blocks the next question", () => {
+    // Observed: "dame el cv de este dev" got a ~5,000-character answer, and every
+    // question after it failed with 400 "Invalid input". The cap is for what a
+    // visitor types; the assistant's own answers come back as history.
+    const result = parseChatRequest({
+      messages: [
+        user("dame el cv de este dev", "u1"),
+        { id: "a1", role: "assistant", parts: [text("x".repeat(MAX_TEXT_CHARS + 1_000))] },
+        user("que destacas??", "u2"),
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts an earlier answer with more parts than MAX_PARTS_PER_MESSAGE, as a many-step answer produces", () => {
+    // Each agent step adds a step marker, metadata, reasoning and its tool calls:
+    // a three-step answer was observed at 17 parts, so six steps go past 20.
+    const parts = Array.from({ length: MAX_PARTS_PER_MESSAGE + 10 }, (_, i) => ({ type: "step-start", n: i }));
+    const result = parseChatRequest({
+      messages: [user("first", "u1"), { id: "a1", role: "assistant", parts }, user("next", "u2")],
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("still bounds earlier answers by the aggregate payload budget", () => {
+    const result = parseChatRequest({
+      messages: [
+        user("first", "u1"),
+        { id: "a1", role: "assistant", parts: [text("x".repeat(MAX_PAYLOAD_BYTES))] },
+        user("next", "u2"),
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.join("; ")).toMatch(/aggregate budget/);
   });
 
   it("rejects parts without a type", () => {
