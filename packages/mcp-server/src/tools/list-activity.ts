@@ -18,7 +18,7 @@ export type ListActivityResult = {
     /** Every public pull request GitHub found, not only the ones counted or returned. */
     total: number;
     /**
-     * How many of the newest pull requests `merged`, `open` and `closed` count:
+     * How many of the most recently updated pull requests `merged`, `open` and `closed` count:
      * GitHub returns at most 100, so they are a sample once `total` is larger.
      */
     counted: number;
@@ -40,7 +40,7 @@ export const DEFAULT_ACTIVITY_LIMIT = 10;
 const ACTIVITY_NOTE =
   "Only public repositories the owner owns are covered, and commits on each repository's default branch only. " +
   "Work in private repositories does not appear here. When pullRequests.total is larger than counted, " +
-  "merged, open and closed describe the newest pull requests, not all of them.";
+  "merged, open and closed describe the most recently updated pull requests, not all of them.";
 
 /**
  * The owner's recent work in the repositories it owns: the newest commits, and

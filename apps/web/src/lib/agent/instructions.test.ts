@@ -18,7 +18,13 @@ describe("buildInstructions", () => {
   it("sends questions about recent work and commits to list_activity, not to a refusal", () => {
     // Observed: "cual fue el ultimo commit que hizo??" was declined as unrelated,
     // and "hace PR a sus propios proyectos?" got "the tools cannot see that".
-    expect(buildInstructions("octocat")).toMatch(/commits[^\n]*list_activity|list_activity[^\n]*commits/i);
+    // Pinned to the rule itself: the tool list also names list_activity next to "commits".
+    expect(buildInstructions("octocat")).toMatch(/latest commits[\s\S]{0,120}call list_activity/i);
+  });
+
+  it("declines in the language of the question", () => {
+    // Observed: a Spanish question was declined in English.
+    expect(buildInstructions("octocat")).toMatch(/decline[\s\S]{0,200}in the question's language/i);
   });
 
   it("tells the model to skip discovery when the question already names a repository", () => {

@@ -73,8 +73,9 @@ Portfolio Agent answers questions about a GitHub portfolio with an LLM agent tha
 
 - **Why:** "what have they been working on lately?" and "do they use pull requests on their own projects?" are recruiter questions that `list_contributions` cannot answer, since it only sees other people's repositories. Without a tool for them the agent could only say it did not know.
 - **How:** `list_activity` runs the pull request search of `list_contributions` with `user:<owner>` instead of `-user:<owner>`, and a commit search (`author:<owner> user:<owner> merge:false`, newest first). Merge commits are left out because they restate pull requests and would crowd the real work out of the newest page.
-- **Totals:** a search page holds at most 100 items, so each result carries GitHub's `total_count` next to the items. The pull request counts by state describe the newest 100 when there are more, and the tool's note says so.
-- **Cost:** public repositories only, and commits on each repository's default branch only. Three search calls per use, cached for 10 minutes like every other GitHub read.
+- **Public only, by query:** both searches add `is:public`. They return repository names, pull request titles and commit messages, so a token that can read private repositories would otherwise expose them, which `list_repos` never does.
+- **Totals:** a search page holds at most 100 items, so each result carries GitHub's `total_count` next to the items. The pull request counts by state describe the 100 most recently updated when there are more, and the tool's note says so.
+- **Cost:** commits on each repository's default branch only. Three search calls per use, cached for 10 minutes like every other GitHub read.
 
 ### The CV and portfolio site are converted once, and read through a tool
 

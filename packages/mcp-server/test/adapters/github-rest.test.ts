@@ -227,8 +227,9 @@ describe("GitHubRestAdapter.listExternalPullRequests", () => {
 });
 
 describe("GitHubRestAdapter.listOwnPullRequests", () => {
-  it("lists pull requests the author opened in their own repositories, with GitHub's total", async () => {
-    const query = "is:pr author:octocat user:octocat";
+  it("lists pull requests the author opened in their own public repositories, with GitHub's total", async () => {
+    // is:public keeps private repositories out even with a token that can read them.
+    const query = "is:pr is:public author:octocat user:octocat";
     const base = "https://api.github.com/search/issues";
     const item = (number: number, state: string, mergedAt: string | null) => ({
       number,
@@ -258,7 +259,8 @@ describe("GitHubRestAdapter.listOwnPullRequests", () => {
 });
 
 describe("GitHubRestAdapter.listOwnCommits", () => {
-  const query = "author:octocat user:octocat merge:false";
+  // is:public keeps private repositories out even with a token that can read them.
+  const query = "author:octocat user:octocat is:public merge:false";
   const url = `https://api.github.com/search/commits?q=${encodeURIComponent(query)}&sort=author-date&order=desc&per_page=100`;
 
   it("lists the author's newest commits in their own repositories, merge commits excluded, with GitHub's total", async () => {

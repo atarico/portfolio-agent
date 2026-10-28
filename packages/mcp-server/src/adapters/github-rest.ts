@@ -132,9 +132,14 @@ export class GitHubRestAdapter implements GitHubPort {
     return (await this.searchPullRequests(`is:pr author:${author} -user:${author}`)).items;
   }
 
-  /** Pull requests `author` opened in the repositories it owns. */
+  /**
+   * Pull requests `author` opened in the repositories it owns. `is:public` here
+   * and in listOwnCommits keeps private repositories out even with a token that
+   * can read them: these searches return repository names, titles and commit
+   * messages, which list_repos never exposes for a private repository.
+   */
   listOwnPullRequests(author: string): Promise<SearchPage<PullRequestSummary>> {
-    return this.searchPullRequests(`is:pr author:${author} user:${author}`);
+    return this.searchPullRequests(`is:pr is:public author:${author} user:${author}`);
   }
 
   /**
@@ -144,7 +149,7 @@ export class GitHubRestAdapter implements GitHubPort {
    * of the newest page.
    */
   async listOwnCommits(author: string): Promise<SearchPage<CommitSummary>> {
-    const query = `author:${author} user:${author} merge:false`;
+    const query = `author:${author} user:${author} is:public merge:false`;
     const url = `${this.baseUrl}/search/commits?q=${encodeURIComponent(query)}&sort=author-date&order=desc&per_page=100`;
     const response = await this.request(url, JSON_MEDIA_TYPE);
     await this.assertOk(response, url);
