@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   verify:
-    name: typecheck, lint, test
+    name: typecheck, lint, test, build
     runs-on: ubuntu-latest
 
     steps:
@@ -53,3 +53,9 @@ jobs:
 
       - name: Test
         run: pnpm -r test
+
+      # Typecheck and tests never run the bundler. The production build is what
+      # Vercel runs on deploy, so a break that only it sees fails here first.
+      # It runs with no secrets on purpose: the build must not need any.
+      - name: Build
+        run: pnpm --filter web build
