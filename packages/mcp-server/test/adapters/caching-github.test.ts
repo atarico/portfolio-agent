@@ -33,6 +33,19 @@ describe("CachingGitHubPort", () => {
     expect(inner.calls.filter((c) => c.startsWith("listExternalPullRequests"))).toHaveLength(1);
   });
 
+  it("serves repeated own-activity lookups from cache", async () => {
+    const inner = github();
+    const cached = new CachingGitHubPort(inner);
+
+    await cached.listOwnPullRequests("octocat");
+    await cached.listOwnPullRequests("octocat");
+    await cached.listOwnCommits("octocat");
+    await cached.listOwnCommits("octocat");
+
+    expect(inner.calls.filter((c) => c.startsWith("listOwnPullRequests"))).toHaveLength(1);
+    expect(inner.calls.filter((c) => c.startsWith("listOwnCommits"))).toHaveLength(1);
+  });
+
   it("serves repeated private-contribution counts from cache", async () => {
     const inner = github();
     const cached = new CachingGitHubPort(inner);
@@ -67,6 +80,8 @@ describe("CachingGitHubPort", () => {
       listFiles: (owner, repo) => base.listFiles(owner, repo),
       listExternalPullRequests: (author) => base.listExternalPullRequests(author),
       getPrivateContributionCount: (owner) => base.getPrivateContributionCount(owner),
+      listOwnPullRequests: (author) => base.listOwnPullRequests(author),
+      listOwnCommits: (author) => base.listOwnCommits(author),
     };
     const cached = new CachingGitHubPort(flaky);
 

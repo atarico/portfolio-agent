@@ -1,4 +1,11 @@
-import type { GitHubPort, PrivateContributionCount, PullRequestSummary, RepoSummary } from "../ports/github.ts";
+import type {
+  CommitSummary,
+  GitHubPort,
+  PrivateContributionCount,
+  PullRequestSummary,
+  RepoSummary,
+  SearchPage,
+} from "../ports/github.ts";
 
 /**
  * How long a GitHub answer is reused. Portfolio repositories change rarely
@@ -68,6 +75,14 @@ export class CachingGitHubPort implements GitHubPort {
 
   getPrivateContributionCount(owner: string): Promise<PrivateContributionCount | null> {
     return this.cached(["getPrivateContributionCount", owner], () => this.inner.getPrivateContributionCount(owner));
+  }
+
+  listOwnPullRequests(author: string): Promise<SearchPage<PullRequestSummary>> {
+    return this.cached(["listOwnPullRequests", author], () => this.inner.listOwnPullRequests(author));
+  }
+
+  listOwnCommits(author: string): Promise<SearchPage<CommitSummary>> {
+    return this.cached(["listOwnCommits", author], () => this.inner.listOwnCommits(author));
   }
 
   listFiles(owner: string, repo: string): Promise<string[]> {

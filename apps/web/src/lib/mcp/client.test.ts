@@ -44,6 +44,12 @@ const fakeGitHub: GitHubPort = {
   async getPrivateContributionCount() {
     return null;
   },
+  async listOwnPullRequests() {
+    return { total: 0, items: [] };
+  },
+  async listOwnCommits() {
+    return { total: 0, items: [] };
+  },
 };
 
 describe("connectPortfolioMcp (in-process)", () => {
@@ -56,6 +62,7 @@ describe("connectPortfolioMcp (in-process)", () => {
         "detect_stack",
         "get_profile",
         "get_readme",
+        "list_activity",
         "list_contributions",
         "list_repos",
       ]);

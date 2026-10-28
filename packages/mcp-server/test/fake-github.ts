@@ -1,4 +1,11 @@
-import type { GitHubPort, PrivateContributionCount, PullRequestSummary, RepoSummary } from "../src/ports/github.ts";
+import type {
+  CommitSummary,
+  GitHubPort,
+  PrivateContributionCount,
+  PullRequestSummary,
+  RepoSummary,
+  SearchPage,
+} from "../src/ports/github.ts";
 
 export interface FakeGitHubData {
   repos?: RepoSummary[];
@@ -10,6 +17,10 @@ export interface FakeGitHubData {
   pullRequests?: Record<string, PullRequestSummary[]>;
   /** GitHub's shared count of private contributions, keyed by owner. */
   privateContributions?: Record<string, PrivateContributionCount>;
+  /** Pull requests opened in the author's own repositories, keyed by author. */
+  ownPullRequests?: Record<string, SearchPage<PullRequestSummary>>;
+  /** Commits authored in the author's own repositories, keyed by author. */
+  ownCommits?: Record<string, SearchPage<CommitSummary>>;
 }
 
 /** In-memory GitHub port for behavior tests. */
@@ -38,6 +49,16 @@ export class FakeGitHub implements GitHubPort {
   async getPrivateContributionCount(owner: string): Promise<PrivateContributionCount | null> {
     this.calls.push(`getPrivateContributionCount:${owner}`);
     return this.data.privateContributions?.[owner] ?? null;
+  }
+
+  async listOwnPullRequests(author: string): Promise<SearchPage<PullRequestSummary>> {
+    this.calls.push(`listOwnPullRequests:${author}`);
+    return this.data.ownPullRequests?.[author] ?? { total: 0, items: [] };
+  }
+
+  async listOwnCommits(author: string): Promise<SearchPage<CommitSummary>> {
+    this.calls.push(`listOwnCommits:${author}`);
+    return this.data.ownCommits?.[author] ?? { total: 0, items: [] };
   }
 
   async getFile(owner: string, repo: string, path: string): Promise<string | null> {

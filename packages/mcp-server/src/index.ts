@@ -13,11 +13,13 @@ export {
   type ProfileSource,
 } from "./profile.ts";
 export type {
+  CommitSummary,
   GitHubPort,
   PrivateContributionCount,
   PullRequestState,
   PullRequestSummary,
   RepoSummary,
+  SearchPage,
 } from "./ports/github.ts";
 export {
   SERVER_NAME,
@@ -35,6 +37,7 @@ export {
   type ProfileSection,
 } from "./tools/get-profile.ts";
 export { getReadme, type GetReadmeInput, type GetReadmeResult } from "./tools/get-readme.ts";
+export { listActivity, type ListActivityInput, type ListActivityResult } from "./tools/list-activity.ts";
 export {
   listContributions,
   type ListContributionsInput,

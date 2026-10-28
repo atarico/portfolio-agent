@@ -1,4 +1,11 @@
-import type { GitHubPort, PrivateContributionCount, PullRequestSummary, RepoSummary } from "../ports/github.ts";
+import type {
+  CommitSummary,
+  GitHubPort,
+  PrivateContributionCount,
+  PullRequestSummary,
+  RepoSummary,
+  SearchPage,
+} from "../ports/github.ts";
 
 export interface GitHubRestAdapterOptions {
   /** Personal access token. Optional: unauthenticated calls are limited to 60 requests/hour. */
@@ -31,6 +38,13 @@ interface SearchIssuePayload {
   /** API URL of the repository, `.../repos/<owner>/<name>`. */
   repository_url: string;
   pull_request?: { merged_at: string | null };
+}
+
+interface SearchCommitPayload {
+  sha: string;
+  html_url: string;
+  commit: { message: string; author: { date: string } };
+  repository: { full_name: string };
 }
 
 interface ContributionsCollectionPayload {
@@ -113,22 +127,48 @@ export class GitHubRestAdapter implements GitHubPort {
     return (payload.tree ?? []).filter((entry) => entry.type === "blob").map((entry) => entry.path);
   }
 
-  /**
-   * Two searches, run in parallel: every pull request `author` opened outside
-   * the repositories it owns (`-user:` excludes those), and the subset a
-   * reviewer approved, which the first search does not report. Both are
-   * public-only with a token that has no scopes, which is what this server uses.
-   */
+  /** Pull requests `author` opened outside the repositories it owns (`-user:` excludes those). */
   async listExternalPullRequests(author: string): Promise<PullRequestSummary[]> {
-    const query = `is:pr author:${author} -user:${author}`;
+    return (await this.searchPullRequests(`is:pr author:${author} -user:${author}`)).items;
+  }
+
+  /** Pull requests `author` opened in the repositories it owns. */
+  listOwnPullRequests(author: string): Promise<SearchPage<PullRequestSummary>> {
+    return this.searchPullRequests(`is:pr author:${author} user:${author}`);
+  }
+
+  /**
+   * Commits `author` authored in the repositories it owns, newest first. GitHub
+   * searches each repository's default branch only. Merge commits are left out:
+   * they restate pull requests, and a run of them would push the real work out
+   * of the newest page.
+   */
+  async listOwnCommits(author: string): Promise<SearchPage<CommitSummary>> {
+    const query = `author:${author} user:${author} merge:false`;
+    const url = `${this.baseUrl}/search/commits?q=${encodeURIComponent(query)}&sort=author-date&order=desc&per_page=100`;
+    const response = await this.request(url, JSON_MEDIA_TYPE);
+    await this.assertOk(response, url);
+
+    const payload = (await response.json()) as { total_count?: number; items?: SearchCommitPayload[] };
+    const items = (payload.items ?? []).map(toCommitSummary);
+    return { total: payload.total_count ?? items.length, items };
+  }
+
+  /**
+   * Two searches, run in parallel: every pull request the query matches, and
+   * the subset a reviewer approved, which the first search does not report.
+   * Both are public-only with a token that has no scopes, which is what this
+   * server uses.
+   */
+  private async searchPullRequests(query: string): Promise<SearchPage<PullRequestSummary>> {
     const search = `${this.baseUrl}/search/issues`;
     const [all, approved] = await Promise.all([
       this.searchIssues(`${search}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=100`),
       this.searchIssues(`${search}?q=${encodeURIComponent(`${query} review:approved`)}&per_page=100`),
     ]);
 
-    const approvedUrls = new Set(approved.map((item) => item.html_url));
-    return all.map((item) => ({
+    const approvedUrls = new Set(approved.items.map((item) => item.html_url));
+    const items = all.items.map((item): PullRequestSummary => ({
       repo: new URL(item.repository_url).pathname.split("/").slice(-2).join("/"),
       number: item.number,
       title: item.title,
@@ -137,6 +177,7 @@ export class GitHubRestAdapter implements GitHubPort {
       approved: approvedUrls.has(item.html_url),
       createdAt: item.created_at,
     }));
+    return { total: all.total, items };
   }
 
   /**
@@ -180,11 +221,12 @@ export class GitHubRestAdapter implements GitHubPort {
     };
   }
 
-  private async searchIssues(url: string): Promise<SearchIssuePayload[]> {
+  private async searchIssues(url: string): Promise<SearchPage<SearchIssuePayload>> {
     const response = await this.request(url, JSON_MEDIA_TYPE);
     await this.assertOk(response, url);
-    const payload = (await response.json()) as { items?: SearchIssuePayload[] };
-    return payload.items ?? [];
+    const payload = (await response.json()) as { total_count?: number; items?: SearchIssuePayload[] };
+    const items = payload.items ?? [];
+    return { total: payload.total_count ?? items.length, items };
   }
 
   private async rawOrNull(url: string): Promise<string | null> {
@@ -246,6 +288,16 @@ function midnightOffsetMs(localMidnight: string): number {
 
 function localDay(instant: string, offsetMs: number): string {
   return new Date(Date.parse(instant) - offsetMs).toISOString().slice(0, 10);
+}
+
+function toCommitSummary(item: SearchCommitPayload): CommitSummary {
+  return {
+    repo: item.repository.full_name,
+    sha: item.sha.slice(0, 7),
+    message: item.commit.message.split("\n", 1)[0] ?? "",
+    date: item.commit.author.date,
+    url: item.html_url,
+  };
 }
 
 function toRepoSummary(repo: GitHubRepoPayload): RepoSummary {

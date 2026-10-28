@@ -11,7 +11,14 @@ describe("buildInstructions", () => {
     expect(instructions).toContain("get_readme");
     expect(instructions).toContain("detect_stack");
     expect(instructions).toContain("list_contributions");
+    expect(instructions).toContain("list_activity");
     expect(instructions).toContain("get_profile");
+  });
+
+  it("sends questions about recent work and commits to list_activity, not to a refusal", () => {
+    // Observed: "cual fue el ultimo commit que hizo??" was declined as unrelated,
+    // and "hace PR a sus propios proyectos?" got "the tools cannot see that".
+    expect(buildInstructions("octocat")).toMatch(/commits[^\n]*list_activity|list_activity[^\n]*commits/i);
   });
 
   it("tells the model to skip discovery when the question already names a repository", () => {

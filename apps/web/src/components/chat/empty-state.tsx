@@ -18,7 +18,7 @@ const STEPS = [
   { title: "You ask", body: "in plain language, in English or Spanish." },
   {
     title: "The agent picks tools",
-    body: "list_repos, get_readme, detect_stack, list_contributions and get_profile, served over MCP.",
+    body: "list_repos, get_readme, detect_stack, list_contributions, list_activity and get_profile, served over MCP.",
   },
   { title: "It answers from GitHub and the CV", body: "with live data, and shows every call it made." },
 ];

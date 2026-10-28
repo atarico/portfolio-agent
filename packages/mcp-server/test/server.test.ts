@@ -27,13 +27,14 @@ afterAll(async () => {
 });
 
 describe("portfolio MCP server", () => {
-  it("exposes exactly the five portfolio tools", async () => {
+  it("exposes exactly the six portfolio tools", async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((t) => t.name).sort()).toEqual([
       "detect_stack",
       "get_profile",
       "get_readme",
+      "list_activity",
       "list_contributions",
       "list_repos",
     ]);
@@ -149,6 +150,19 @@ describe("portfolio MCP server", () => {
     expect((result.structuredContent as { note: string }).note).toContain("Mascot at GitHub");
   });
 
+  it("list_activity reports the owner's commits and own pull requests", async () => {
+    const result = await client.callTool({ name: "list_activity", arguments: { limit: 5 } });
+
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({
+      owner: "octocat",
+      commits: { total: 0, recent: [] },
+      pullRequests: { total: 0, recent: [] },
+    });
+    expect(github.calls).toContain("listOwnCommits:octocat");
+    expect(github.calls).toContain("listOwnPullRequests:octocat");
+  });
+
   it("get_profile requires at least one section", async () => {
     for (const sections of [undefined, []]) {
       const result = await client.callTool({ name: "get_profile", arguments: { sections } });
@@ -193,6 +207,12 @@ describe("tool failure logging", () => {
         throw upstreamError;
       },
       getPrivateContributionCount: async () => {
+        throw upstreamError;
+      },
+      listOwnPullRequests: async () => {
+        throw upstreamError;
+      },
+      listOwnCommits: async () => {
         throw upstreamError;
       },
     };

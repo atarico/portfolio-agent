@@ -34,6 +34,24 @@ export interface PullRequestSummary {
   createdAt: string;
 }
 
+export interface CommitSummary {
+  /** Repository the commit belongs to, as `owner/name`. */
+  repo: string;
+  /** Abbreviated SHA, as GitHub shows it. */
+  sha: string;
+  /** First line of the commit message. */
+  message: string;
+  /** ISO timestamp of when it was authored. */
+  date: string;
+  url: string;
+}
+
+/** The newest results of a GitHub search, and how many it found in total (a page holds at most 100). */
+export interface SearchPage<T> {
+  total: number;
+  items: T[];
+}
+
 /**
  * GitHub's own count of an owner's contributions to private repositories, as
  * shown on their public profile. It says how many, never which repositories.
@@ -59,6 +77,10 @@ export interface GitHubPort {
   listExternalPullRequests(author: string): Promise<PullRequestSummary[]>;
   /** `null` when the owner does not share private contribution counts on their profile. */
   getPrivateContributionCount(owner: string): Promise<PrivateContributionCount | null>;
+  /** Public pull requests `author` opened in repositories it owns, newest activity first. */
+  listOwnPullRequests(author: string): Promise<SearchPage<PullRequestSummary>>;
+  /** Public commits `author` authored in repositories it owns, newest first, merge commits excluded. */
+  listOwnCommits(author: string): Promise<SearchPage<CommitSummary>>;
   /** Every file (blob) path at the default branch HEAD; `[]` when the repository is empty or not found. */
   listFiles(owner: string, repo: string): Promise<string[]>;
 }
